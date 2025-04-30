@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -31,27 +32,43 @@ export default function AuthPage() {
   const [activeTab, setActiveTab] = useState<string>("login");
   const { loginMutation, registerMutation, user } = useAuth();
   const [, navigate] = useLocation();
+  
+  // Get return URL from query parameters
+  const getReturnUrl = () => {
+    const params = new URLSearchParams(window.location.search);
+    const returnTo = params.get('returnTo') || '/';
+    
+    // Validar a URL de retorno
+    if (returnTo === '/auth' || returnTo.includes('?returnTo=')) {
+      return '/';
+    }
+    
+    // Garantir que a URL começa com /
+    return returnTo.startsWith('/') ? returnTo : `/${returnTo}`;
+  };
 
   useEffect(() => {
+    // Se o usuário já estiver autenticado, redirecionar
     if (user) {
-      if (user.role === "Administrador") {
+      const returnUrl = getReturnUrl();
+      if (user.role === "Administrador" && returnUrl === '/') {
         navigate("/admin/dashboard");
       } else {
-        navigate("/");
+        navigate(returnUrl);
       }
     }
   }, [user, navigate]);
 
-  const loginForm = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
+  const loginForm = useForm<any>({
+    resolver: zodResolver(loginSchema) as any,
     defaultValues: {
       email: "",
       password: "",
     },
   });
 
-  const registerForm = useForm<RegisterFormValues>({
-    resolver: zodResolver(registerSchema),
+  const registerForm = useForm<any>({
+    resolver: zodResolver(registerSchema) as any,
     defaultValues: {
       username: "",
       email: "",
@@ -59,18 +76,14 @@ export default function AuthPage() {
       confirmPassword: "",
       name: "",
       role: "client",
-      phone: "",
     },
   });
 
   const onLoginSubmit = (values: LoginFormValues) => {
     loginMutation.mutate(values, {
-      onSuccess: (user) => {
-        if (user.role === "Administrador") {
-          navigate("/admin/dashboard");
-        } else {
-          navigate("/");
-        }
+      onSuccess: () => {
+        // O redirecionamento será feito pelo useEffect acima
+        // quando o user for atualizado
       },
     });
   };
@@ -256,19 +269,6 @@ export default function AuthPage() {
                             </FormItem>
                           )}
                         />
-                        <FormField
-                          control={registerForm.control}
-                          name="phone"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Telefone</FormLabel>
-                              <FormControl>
-                                <Input placeholder="(99) 99999-9999" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
                       </div>
                       <FormField
                         control={registerForm.control}
@@ -309,7 +309,27 @@ export default function AuthPage() {
                           </FormItem>
                         )}
                       />
-                      <input type="hidden" {...registerForm.register("role")} value="client" />
+                      <FormField
+                        control={registerForm.control}
+                        name="role"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Tipo de Usuário</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione o tipo de usuário" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="client">Cliente</SelectItem>
+                                <SelectItem value="Administrador">Administrador</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                       <Button 
                         type="submit" 
                         className="w-full" 

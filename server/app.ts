@@ -2,67 +2,62 @@ import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import cors from 'cors';
+import { rateLimiter, requireRole, validateInput, errorHandler, requestLogger, sanitizeInput } from './middleware';
+import { monitoring, trackResponseTime } from './monitoring';
+import { cache } from './cache';
+import { ROLES } from './config';
 
 const app = express();
 
-// Middleware
+// Basic middleware
+app.use(express.json());
 app.use(cors({
   origin: process.env.CORS_ORIGIN || '*',
   credentials: true
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
 
-// Logging middleware
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+// Security middleware
+app.use(rateLimiter);
+app.use(sanitizeInput);
 
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
+// Monitoring middleware
+app.use(requestLogger);
+app.use(trackResponseTime);
 
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      console.log(logLine);
-    }
+// Health check endpoint
+app.get('/health', async (req: Request, res: Response) => {
+  const systemMetrics = await monitoring.getSystemMetrics();
+  const dbMetrics = await monitoring.getDatabaseMetrics();
+  
+  res.json({
+    status: 'healthy',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    system: systemMetrics,
+    database: dbMetrics,
   });
-
-  next();
 });
 
-// Authorization middleware
-export function authorize(role: string) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    if (req.user?.role !== role && req.user?.role !== 'Administrador') {
-      return res.status(403).send('Acesso negado');
-    }
-    next();
-  };
-}
+// Metrics endpoint (protected by admin role)
+app.get('/metrics', requireRole(ROLES.ADMIN), async (req: Request, res: Response) => {
+  const apiMetrics = monitoring.getApiMetrics();
+  const systemMetrics = await monitoring.getSystemMetrics();
+  const dbMetrics = await monitoring.getDatabaseMetrics();
+  
+  res.json({
+    api: apiMetrics,
+    system: systemMetrics,
+    database: dbMetrics,
+    cache: {
+      stats: cache.getStats(),
+    },
+  });
+});
 
 // Register routes
 registerRoutes(app);
 
 // Error handling
-app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-  const status = err.status || err.statusCode || 500;
-  const message = err.message || "Internal Server Error";
-  console.error(err);
-  res.status(status).json({ message });
-});
+app.use(errorHandler);
 
 export default app; 

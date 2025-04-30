@@ -1,82 +1,99 @@
+import { useState } from "react";
 import { useCart } from "@/context/cart-context";
 import { CartItem as CartItemType } from "@shared/schema";
 import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Trash2, Plus, Minus } from "lucide-react";
+import { Edit2, Trash2 } from "lucide-react";
+import { EditCartItemModal } from "./edit-cart-item-modal";
 
 interface CartItemProps {
-  item: CartItemType;
+  item: CartItemType & {
+    menuItems?: {
+      entradas?: string[];
+      pratosPrincipais?: string[];
+      sobremesas?: string[];
+    };
+    time?: string;
+  };
 }
 
 export default function CartItem({ item }: CartItemProps) {
-  const { updateCartItemQuantity, removeFromCart } = useCart();
+  const { removeFromCart, updateCartItem } = useCart();
+  const [showEditModal, setShowEditModal] = useState(false);
 
-  const handleIncrement = () => {
-    updateCartItemQuantity(item.id, item.quantity + 1);
-  };
-
-  const handleDecrement = () => {
-    if (item.quantity > 1) {
-      updateCartItemQuantity(item.id, item.quantity - 1);
-    }
-  };
-
-  const handleRemove = () => {
-    removeFromCart(item.id);
-  };
-
-  // Format date
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    }).format(date);
+  const handleUpdateItem = (updatedItem: CartItemType) => {
+    updateCartItem(updatedItem);
   };
 
   return (
-    <div className="flex items-start border-b border-gray-100 pb-4">
-      <img 
-        src={item.imageUrl} 
-        alt={item.title} 
-        className="w-16 h-16 object-cover rounded-lg"
+    <div className="flex items-start gap-4 p-4 border rounded-lg">
+      <img
+        src={item.imageUrl}
+        alt={item.title}
+        className="w-20 h-20 object-cover rounded-md"
       />
-      <div className="ml-4 flex-grow">
-        <div className="flex justify-between">
-          <h3 className="text-sm font-medium text-gray-900">{item.title}</h3>
-          <Button variant="ghost" size="icon" onClick={handleRemove} className="h-6 w-6">
-            <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-500" />
+      
+      <div className="flex-1">
+        <h3 className="font-medium text-gray-900">{item.title}</h3>
+        <p className="text-sm text-gray-500">
+          {item.menuSelection} • {item.guestCount} convidados
+        </p>
+        <p className="text-sm text-gray-500">
+          {item.date} • {item.time || "12:00"}
+        </p>
+        
+        {item.menuItems && (
+          <div className="mt-2 text-sm text-gray-600">
+            {item.menuItems.entradas && item.menuItems.entradas.length > 0 && (
+              <p>Entradas: {item.menuItems.entradas.join(", ")}</p>
+            )}
+            {item.menuItems.pratosPrincipais && item.menuItems.pratosPrincipais.length > 0 && (
+              <p>Pratos Principais: {item.menuItems.pratosPrincipais.join(", ")}</p>
+            )}
+            {item.menuItems.sobremesas && item.menuItems.sobremesas.length > 0 && (
+              <p>Sobremesas: {item.menuItems.sobremesas.join(", ")}</p>
+            )}
+          </div>
+        )}
+        
+        <div className="mt-2 flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowEditModal(true)}
+          >
+            <Edit2 className="h-4 w-4 mr-1" />
+            Editar
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => removeFromCart(item.id)}
+          >
+            <Trash2 className="h-4 w-4 mr-1" />
+            Remover
           </Button>
         </div>
-        <p className="text-sm text-gray-500">{formatDate(item.date)} • {item.guestCount} convidados</p>
-        <p className="text-xs text-gray-500 mt-1">Menu: {item.menuSelection}</p>
-        <div className="flex justify-between items-center mt-2">
-          <div className="flex items-center">
-            <Button 
-              variant="outline" 
-              size="icon" 
-              className="h-6 w-6"
-              onClick={handleDecrement}
-              disabled={item.quantity <= 1}
-            >
-              <Minus className="h-3 w-3" />
-            </Button>
-            <span className="mx-2 text-sm">{item.quantity}</span>
-            <Button 
-              variant="outline" 
-              size="icon" 
-              className="h-6 w-6"
-              onClick={handleIncrement}
-            >
-              <Plus className="h-3 w-3" />
-            </Button>
-          </div>
-          <span className="text-sm font-medium text-gray-900">
-            {formatCurrency(item.price * item.quantity)}
-          </span>
-        </div>
       </div>
+      
+      <div className="text-right">
+        <p className="font-medium text-gray-900">
+          {formatCurrency(item.price * item.quantity)}
+        </p>
+        <p className="text-sm text-gray-500">
+          Adicional de garçons: {formatCurrency(item.waiterFee || 0)}
+          <span className="text-xs text-gray-400 block">
+            (1 garçom a cada 10 convidados)
+          </span>
+        </p>
+      </div>
+
+      <EditCartItemModal
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        item={item}
+        onSave={handleUpdateItem}
+      />
     </div>
   );
 }

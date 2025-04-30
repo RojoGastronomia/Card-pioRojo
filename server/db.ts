@@ -80,3 +80,17 @@ export async function runMigrations() {
     client.release();
   }
 }
+
+// Handle command line arguments
+if (process.argv[2] === 'migrate') {
+  console.log('Running migrations...');
+  runMigrations()
+    .then(() => {
+      console.log('Migrations completed successfully');
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error('Migration failed:', error);
+      process.exit(1);
+    });
+}

@@ -37,6 +37,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusCircle, Pencil, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter"; // Import Link for navigation
+import { z } from "zod";
 
 type MenuFormValues = z.infer<typeof insertMenuSchema>;
 
@@ -91,8 +92,8 @@ export default function MenusCrudPage() {
   });
 
   // Form setup
-  const form = useForm<MenuFormValues>({
-    resolver: zodResolver(insertMenuSchema),
+  const form = useForm<any>({
+    resolver: zodResolver(insertMenuSchema) as any,
     defaultValues: { 
       name: "", 
       description: "",
@@ -162,7 +163,7 @@ export default function MenusCrudPage() {
                   <TableRow key={menu.id} className="hover:bg-gray-50">
                     <TableCell className="font-medium">{menu.name}</TableCell>
                     <TableCell>{menu.description}</TableCell>
-                    <TableCell>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(menu.price)}</TableCell>
+                    <TableCell>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(menu.price))}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
                          {/* Link/Button to manage dishes for this menu - TO DO */}

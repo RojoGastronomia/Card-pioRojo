@@ -19,16 +19,16 @@ export default function EventsPage() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [eventType, setEventType] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
 
   const { data: events, isLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
-    onError: (error: Error) => {
-      toast({
-        title: "Error loading events",
-        description: error.message,
-        variant: "destructive",
-      });
+    queryFn: async () => {
+      const response = await fetch("/api/events");
+      if (!response.ok) {
+        throw new Error("Failed to fetch events");
+      }
+      return response.json();
     },
   });
 
@@ -40,11 +40,11 @@ export default function EventsPage() {
     setSelectedEvent(null);
   };
 
-  const filteredEvents = events?.filter((event) => {
+  const filteredEvents = events?.filter((event: Event) => {
     const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          event.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = eventType ? event.eventType === eventType : true;
-    return matchesSearch && matchesType;
+    const matchesStatus = status ? event.status === status : true;
+    return matchesSearch && matchesStatus;
   });
 
   return (
@@ -68,27 +68,21 @@ export default function EventsPage() {
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="flex items-center gap-2">
                 <Filter size={16} />
-                {eventType ? `Tipo: ${eventType}` : "Filtrar por tipo"}
+                {status ? `Status: ${status}` : "Filtrar por status"}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => setEventType(null)}>
-                Todos os tipos
+              <DropdownMenuItem onClick={() => setStatus(null)}>
+                Todos os status
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setEventType("corporate")}>
-                Eventos Corporativos
+              <DropdownMenuItem onClick={() => setStatus("active")}>
+                Ativos
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setEventType("wedding")}>
-                Casamentos
+              <DropdownMenuItem onClick={() => setStatus("completed")}>
+                Concluídos
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setEventType("birthday")}>
-                Aniversários
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setEventType("coffee")}>
-                Coffee Breaks
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setEventType("kids")}>
-                Festas Infantis
+              <DropdownMenuItem onClick={() => setStatus("cancelled")}>
+                Cancelados
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -113,7 +107,7 @@ export default function EventsPage() {
         </div>
       ) : filteredEvents && filteredEvents.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredEvents.map((event) => (
+          {filteredEvents.map((event: Event) => (
             <EventCard 
               key={event.id} 
               event={event} 

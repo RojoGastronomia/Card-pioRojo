@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/select";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/utils";
-import { Search, Filter, Eye, Calendar, User as UserIcon } from "lucide-react";
+import { Search, Filter, PencilLine, Calendar, User as UserIcon, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
@@ -54,6 +54,8 @@ export default function AdminOrdersPage() {
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderStatusValue, setOrderStatusValue] = useState<string>("");
+  const [adminNotesValue, setAdminNotesValue] = useState("");
+  const [isSavingAdminNotes, setIsSavingAdminNotes] = useState(false);
 
   // Fetch orders
   const { 
@@ -96,6 +98,12 @@ export default function AdminOrdersPage() {
     }
   }, [ordersError, eventsError, usersError, ordersFetchError, eventsFetchError, usersFetchError, toast]);
 
+  useEffect(() => {
+    if (selectedOrder) {
+      setAdminNotesValue(selectedOrder.adminNotes || "");
+    }
+  }, [selectedOrder]);
+
   // Update order status mutation
   const updateOrderStatusMutation = useMutation({
     mutationFn: async ({ orderId, status }: { orderId: number; status: string }) => {
@@ -114,6 +122,34 @@ export default function AdminOrdersPage() {
       toast({
         title: "Error updating order status",
         description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Adicionando uma mutation para excluir pedidos
+  const deleteOrderMutation = useMutation({
+    mutationFn: async (orderId: number) => {
+      console.log(`[DEBUG] Trying to delete order with ID: ${orderId}`);
+      const response = await apiRequest("DELETE", `/api/orders/${orderId}`);
+      const result = await response.json();
+      console.log(`[DEBUG] Order deletion API call completed for ID: ${orderId}. Result:`, result);
+      return result;
+    },
+    onSuccess: (data) => {
+      console.log(`[DEBUG] Delete order mutation succeeded, invalidating queries. Response data:`, data);
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({
+        title: "Pedido excluído",
+        description: `O pedido #${data.orderId} foi excluído com sucesso.`,
+        variant: "default",
+      });
+    },
+    onError: (error: Error) => {
+      console.error(`[DEBUG] Delete order mutation failed:`, error);
+      toast({
+        title: "Erro ao excluir pedido",
+        description: `Erro: ${error.message}`,
         variant: "destructive",
       });
     },
@@ -195,6 +231,34 @@ export default function AdminOrdersPage() {
       orderId: selectedOrder.id,
       status: orderStatusValue,
     });
+  };
+
+  const handleSaveAdminNotes = async () => {
+    if (!selectedOrder) return;
+    setIsSavingAdminNotes(true);
+    try {
+      await apiRequest("PUT", `/api/orders/${selectedOrder.id}/admin-notes`, {
+        notes: adminNotesValue,
+      });
+      // Buscar o pedido atualizado do backend
+      const updatedOrderRes = await apiRequest("GET", `/api/orders/${selectedOrder.id}`);
+      const updatedOrder = await updatedOrderRes.json();
+      setSelectedOrder(updatedOrder);
+      setAdminNotesValue(""); // Limpa o campo após atualizar o estado
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({
+        title: "Observação salva",
+        description: "Observação do administrador salva com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao salvar observação",
+        description: error instanceof Error ? error.message : "Erro desconhecido.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingAdminNotes(false);
+    }
   };
 
   return (
@@ -302,13 +366,26 @@ export default function AdminOrdersPage() {
                     <TableCell>{formatCurrency(order.totalAmount)}</TableCell>
                     <TableCell>{getStatusBadge(order.status)}</TableCell>
                     <TableCell className="text-right">
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => handleViewOrderDetails(order)}
-                      >
-                        <Eye className="h-4 w-4 text-primary" />
-                      </Button>
+                      <div className="flex justify-end space-x-2">
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => handleViewOrderDetails(order)}
+                        >
+                          <PencilLine className="h-4 w-4 text-gray-500" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => {
+                            if (window.confirm('Tem certeza que deseja excluir este pedido?')) {
+                              deleteOrderMutation.mutate(order.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -399,12 +476,54 @@ export default function AdminOrdersPage() {
               </div>
             </div>
             
-            {selectedOrder.additionalInfo && (
-              <div className="mt-4">
-                <h3 className="text-sm font-medium text-gray-500">Informações Adicionais</h3>
-                <p className="mt-1 text-gray-900">{selectedOrder.additionalInfo}</p>
-              </div>
-            )}
+            {/* Observações do Administrador */}
+            <div className="mt-4">
+              <h3 className="text-sm font-medium text-gray-500">Observações do Administrador</h3>
+              {(() => {
+                let notesArr = [];
+                try {
+                  const raw = selectedOrder.adminNotes || '';
+                  if (raw.trim().startsWith('[')) {
+                    notesArr = JSON.parse(raw);
+                  } else if (raw.trim().length > 0) {
+                    notesArr = [{ text: raw, author: 'Desconhecido', date: null }];
+                  }
+                  if (!Array.isArray(notesArr)) notesArr = [];
+                } catch {
+                  notesArr = [];
+                }
+                return (
+                  <div className="mb-2 space-y-2 max-h-40 overflow-y-auto">
+                    {notesArr.length === 0 && (
+                      <div className="text-gray-400 italic">Nenhuma observação registrada ainda.</div>
+                    )}
+                    {notesArr.map((note, idx) => (
+                      <div key={idx} className="p-2 bg-gray-100 rounded">
+                        <div className="text-gray-800 whitespace-pre-line">{note.text}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {note.author} — {note.date ? new Date(note.date).toLocaleString('pt-BR') : ""}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+              <textarea
+                className="mt-1 w-full min-h-[60px] border rounded-md p-2 text-gray-900"
+                value={adminNotesValue}
+                onChange={e => setAdminNotesValue(e.target.value)}
+                placeholder="Adicione observações administrativas aqui..."
+              />
+              <Button
+                type="button"
+                className="mt-2"
+                variant="secondary"
+                onClick={handleSaveAdminNotes}
+                disabled={isSavingAdminNotes}
+              >
+                {isSavingAdminNotes ? 'Salvando...' : 'Salvar Observação'}
+              </Button>
+            </div>
             
             <DialogFooter className="mt-6">
               <DialogClose asChild>

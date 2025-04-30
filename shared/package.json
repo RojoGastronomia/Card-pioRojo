@@ -1,0 +1,14 @@
+{
+  "name": "shared",
+  "version": "1.0.0",
+  "description": "Shared types and utilities for SiteCard application",
+  "main": "schema.ts",
+  "type": "module",
+  "scripts": {},
+  "dependencies": {
+    "zod": "^3.24.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+} 

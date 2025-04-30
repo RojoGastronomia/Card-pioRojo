@@ -31,34 +31,51 @@ Antes de começar, verifique se você tem os seguintes requisitos:
 
 ## 🔧 Instalação
 
-1. Clone o repositório
-```bash
-git clone https://github.com/seu-usuario/sitecard.git
-cd sitecard
-```
+1. Clone o repositório:
+   ```sh
+   git clone https://github.com/SEU_USUARIO/NOME_DO_REPOSITORIO.git
+   cd NOME_DO_REPOSITORIO
+   ```
 
-2. Instale as dependências
-```bash
-npm install
-```
+2. Configure as variáveis de ambiente:
+   - Copie `.env.example` para `.env` e preencha os valores necessários.
 
-3. Configure as variáveis de ambiente
-Crie um arquivo `.env` na raiz do projeto e adicione:
-```env
-DATABASE_URL=postgresql://seu_usuario:sua_senha@localhost:5432/nome_do_banco
-SESSION_SECRET=seu_segredo_aqui
-NODE_ENV=development
-```
+3. Instale as dependências do backend:
+   ```sh
+   cd server
+   npm install
+   ```
 
-4. Execute as migrações do banco de dados
-```bash
-npm run db:migrate
-```
+4. Instale as dependências do frontend:
+   ```sh
+   cd ../client
+   npm install
+   ```
 
-5. Inicie o servidor de desenvolvimento
-```bash
-npm run dev
-```
+## Scripts
+
+- **Backend:**
+  - `npm run dev` (desenvolvimento)
+  - `npm start` (produção)
+- **Frontend:**
+  - `npm run dev` (desenvolvimento)
+  - `npm run build` (gerar build para produção)
+
+## Deploy na Render.com
+
+1. Suba o projeto para o GitHub.
+2. Siga o passo a passo da Render para criar um Web Service (backend) e um Static Site (frontend).
+3. Configure as variáveis de ambiente conforme `.env.example`.
+4. Crie um banco PostgreSQL gratuito na Render e use a URL fornecida.
+
+## Observações
+- O backend espera as variáveis de ambiente do arquivo `.env`.
+- O frontend espera a variável `VITE_API_URL` apontando para o backend online.
+- O backup do sistema salva arquivos na pasta `server/backups` (atenção: plataformas gratuitas podem apagar arquivos após reinício).
+
+---
+
+Se tiver dúvidas, consulte a documentação ou abra uma issue!
 
 ## 🌟 Funcionalidades
 

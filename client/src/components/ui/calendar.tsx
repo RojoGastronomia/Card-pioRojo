@@ -36,18 +36,6 @@ function Calendar({
         day_hidden: "invisible",
         ...classNames,
       }}
-      components={{
-        CaptionNavigation: ({ ...props }) => (
-          <div className="flex items-center justify-between">
-            <button {...props} className="nav_button nav_button_previous">
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button {...props} className="nav_button nav_button_next">
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        ),
-      }}
       {...props}
     />
   )

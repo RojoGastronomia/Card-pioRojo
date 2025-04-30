@@ -2,7 +2,7 @@ import { type Event, type Menu } from "@shared/schema";
 import { Card } from "@/components/ui/card";
 import { Menu as MenuIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { getQueryFn } from "@/lib/queryClient";
 
 interface EventCardProps {
@@ -12,10 +12,8 @@ interface EventCardProps {
 }
 
 export default function EventCard({ event, onClick, onMenuOptionsClick }: EventCardProps) {
-  const { toast } = useToast();
-
-  const { data: menuItems = [] } = useQuery<Menu[]>({
-    queryKey: ["/api/events", event.id, "menus"],
+  const { data: menus = [] } = useQuery<Menu[]>({
+    queryKey: [`/api/events/${event.id}/menus`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!event.id,
   });
@@ -48,7 +46,7 @@ export default function EventCard({ event, onClick, onMenuOptionsClick }: EventC
             onClick={(e) => onMenuOptionsClick?.(e, event)}
           >
             <MenuIcon className="w-4 h-4 mr-2" />
-            <span>{menuItems.length} opções de menu</span>
+            <span>{menus.length} {menus.length === 1 ? 'opção de menu' : 'opções de menu'}</span>
           </div>
 
           <span className="bg-emerald-500 text-white text-xs px-3 py-1 rounded-full whitespace-nowrap">

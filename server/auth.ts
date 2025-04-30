@@ -1,13 +1,39 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { Express } from "express";
-import session from "express-session";
+import { Strategy as JwtStrategy, ExtractJwt } from "passport-jwt";
+import { Express, Request, Response, NextFunction } from "express";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { User as SelectUser, insertUserSchema } from "@shared/schema";
+import { User as SelectUser, insertUserSchema } from "shared/schema";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
+import { db } from './db';
+import { users } from 'shared/schema';
+import { eq } from 'drizzle-orm';
+import { validationSchemas, ROLES } from './config';
+import { cache } from './cache';
+import logger from './logger';
+
+// Request autenticado - definido como tipo em vez de interface para evitar conflitos de tipagem
+export type AuthenticatedRequest = Request & {
+  user: SelectUser;
+};
+
+// Middleware para garantir que o usuário está autenticado
+export const authenticateJWT = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  if (!req.isAuthenticated()) {
+    console.log('[Auth] User not authenticated, returning 401');
+    return res.status(401).json({
+      error: "Not authenticated",
+    });
+  }
+  next();
+};
 
 declare global {
   namespace Express {
@@ -15,98 +41,161 @@ declare global {
   }
 }
 
-const scryptAsync = promisify(scrypt);
+// Cache implementation
+const userCache = new Map<number, {
+  user: SelectUser;
+  timestamp: number;
+}>();
 
-async function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${buf.toString("hex")}.${salt}`;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
+const MAX_CACHE_SIZE = 1000; // Maximum number of users to cache
+
+function getCachedUser(id: number): SelectUser | null {
+  const cached = userCache.get(id);
+  if (!cached) return null;
+  
+  // Check if cache entry is expired
+  if (Date.now() - cached.timestamp > CACHE_TTL) {
+    userCache.delete(id);
+    return null;
+  }
+  
+  return cached.user;
 }
 
-async function comparePasswords(supplied: string, stored: string) {
-  console.log(`[Compare] Comparing passwords. Stored value: ${stored ? stored.substring(0, 20) + '...' : 'undefined'}`);
+function cacheUser(user: SelectUser) {
+  // Clear old entries if cache is too large
+  if (userCache.size >= MAX_CACHE_SIZE) {
+    const oldestKey = Array.from(userCache.entries())
+      .sort(([, a], [, b]) => a.timestamp - b.timestamp)[0][0];
+    userCache.delete(oldestKey);
+  }
+  
+  userCache.set(user.id, {
+    user,
+    timestamp: Date.now()
+  });
+}
+
+const scryptAsync = promisify(scrypt);
+
+async function hashPassword(password: string): Promise<string> {
   try {
-    const [hashed, salt] = stored.split(".");
-    if (!hashed || !salt) {
-      console.error(`[Compare] Invalid stored password format for user.`);
-      throw new Error("Invalid stored password format.");
-    }
-    const hashedBuf = Buffer.from(hashed, "hex");
-    const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+    await validationSchemas.password.parseAsync(password);
     
-    console.log(`[Compare] Hashed buffer length (stored): ${hashedBuf.length}`);
-    console.log(`[Compare] Supplied buffer length (generated): ${suppliedBuf.length}`);
-    
-    if (hashedBuf.length !== suppliedBuf.length) {
-       console.error(`[Compare] Buffer length mismatch! Cannot compare.`);
-       return false; 
-    }
-    
-    console.log("[Compare] Buffer lengths match. Performing timingSafeEqual.");
-    return timingSafeEqual(hashedBuf, suppliedBuf);
+    const salt = randomBytes(16).toString('hex');
+    const buf = (await scryptAsync(password, salt, 64)) as Buffer;
+    return `${buf.toString('hex')}.${salt}`;
   } catch (error) {
-     console.error("[Compare] Error during password comparison:", error);
-     throw error;
+    throw new Error('Password does not meet security requirements');
   }
 }
 
+async function verifyPassword(storedPassword: string, suppliedPassword: string): Promise<boolean> {
+  const [hashedPassword, salt] = storedPassword.split('.');
+  const buf = (await scryptAsync(suppliedPassword, salt, 64)) as Buffer;
+  return buf.toString('hex') === hashedPassword;
+}
+
+// Constante para o papel de administrador
+const ADMIN_ROLE = "Administrador";
+
 export function setupAuth(app: Express) {
-  const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || "cardapio-digital-secret",
-    resave: false,
-    saveUninitialized: false,
-    store: storage.sessionStore,
-    cookie: {
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
-    }
-  };
-
-  app.set("trust proxy", 1);
-  app.use(session(sessionSettings));
-  app.use(passport.initialize());
-  app.use(passport.session());
-
-  passport.use(
-    new LocalStrategy({
-      usernameField: 'email',
-      passwordField: 'password'
-    }, async (email, password, done) => {
-      try {
-        const user = await storage.getUserByEmail(email);
-        if (!user || !(await comparePasswords(password, user.password))) {
-          return done(null, false);
-        } else {
-          return done(null, user);
-        }
-      } catch (error) {
-        return done(error);
-      }
-    }),
-  );
-
-  passport.serializeUser((user, done) => done(null, user.id));
-  passport.deserializeUser(async (id: number, done) => {
-    console.log(`[Auth] Attempting to deserialize user with ID: ${id}`);
+  // Local Strategy
+  passport.use(new LocalStrategy({
+    usernameField: 'email',
+    passwordField: 'password'
+  }, async (email, password, done) => {
     try {
-      const user = await storage.getUser(id);
-      if (user) {
-        console.log(`[Auth] Successfully deserialized user: ${user.username}`);
-        done(null, user);
-      } else {
-        console.error(`[Auth] User not found for ID: ${id}`);
-        done(new Error(`User not found for ID: ${id}`), null);
+      const [user] = await db.select().from(users).where(eq(users.email, email));
+
+      if (!user) {
+        return done(null, false, { message: 'Invalid email or password' });
       }
+
+      const isValid = await verifyPassword(user.password, password);
+      if (!isValid) {
+        return done(null, false, { message: 'Invalid email or password' });
+      }
+
+      // Cache user data
+      userCache.set(user.id, user);
+      return done(null, user);
     } catch (error) {
-      console.error('[Auth] Error during deserialization:', error);
+      return done(error);
+    }
+  }));
+
+  // JWT Strategy
+  passport.use(new JwtStrategy({
+    jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+    secretOrKey: process.env.JWT_SECRET || 'your-secret-key'
+  }, async (jwtPayload, done) => {
+    try {
+      // Check cache first
+      const cachedUser = userCache.get(jwtPayload.id);
+      if (cachedUser) {
+        return done(null, cachedUser);
+      }
+
+      const [user] = await db.select().from(users).where(eq(users.id, jwtPayload.id));
+
+      if (!user) {
+        return done(null, false);
+      }
+
+      // Cache user data
+      userCache.set(user.id, user);
+      return done(null, user);
+    } catch (error) {
+      return done(error);
+    }
+  }));
+
+  // Serialize user
+  passport.serializeUser((user: any, done) => {
+    done(null, user.id);
+  });
+
+  // Deserialize user
+  passport.deserializeUser(async (id: number, done) => {
+    try {
+      // Check cache first
+      const cachedUser = userCache.get(id);
+      if (cachedUser) {
+        return done(null, cachedUser);
+      }
+
+      const [user] = await db.select().from(users).where(eq(users.id, id));
+
+      if (!user) {
+        return done(null, false);
+      }
+
+      // Cache user data
+      userCache.set(user.id, user);
+      done(null, user);
+    } catch (error) {
       done(error);
     }
   });
+
+  // Initialize passport
+  app.use(passport.initialize());
+  app.use(passport.session());
 
   app.post("/api/register", async (req, res, next) => {
     try {
       const userData = insertUserSchema.parse(req.body);
       
+      // Verificar se já existe algum usuário administrador
+      if (userData.role === ADMIN_ROLE) {
+        const admins = await storage.getUsersByRole(ADMIN_ROLE);
+        if (admins.length > 0 && (!req.user || req.user.role !== ADMIN_ROLE)) {
+          return res.status(403).json({ message: "Only administrators can create new administrator accounts" });
+        }
+      }
+
       const existingUserByEmail = await storage.getUserByEmail(userData.email);
       if (existingUserByEmail) {
         return res.status(400).json({ message: "Email already in use" });
@@ -122,10 +211,18 @@ export function setupAuth(app: Express) {
         password: await hashPassword(userData.password),
       });
 
-      req.login(user, (err: any) => {
-        if (err) return next(err);
+      // Cache the newly registered user
+      cacheUser(user);
+
+      // Only log in if it's a regular user registration, not admin creating a user
+      if (!req.user || req.user.role !== "Administrador") {
+        req.login(user, (err: any) => {
+          if (err) return next(err);
+          res.status(201).json(user);
+        });
+      } else {
         res.status(201).json(user);
-      });
+      }
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ 
@@ -137,8 +234,9 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err: any, user: SelectUser | false, info: any) => {
+  // Login route
+  app.post("/api/login", (req: Request, res: Response, next: NextFunction) => {
+    passport.authenticate("local", (err: any, user: any, info: any) => {
       if (err) return next(err);
       if (!user) return res.status(401).json({ message: "Invalid email or password" });
       
@@ -149,14 +247,21 @@ export function setupAuth(app: Express) {
     })(req, res, next);
   });
 
-  app.post("/api/logout", (req, res, next) => {
+  // Logout route
+  app.post("/api/logout", (req: Request, res: Response, next: NextFunction) => {
+    if (req.user) {
+      // Remove user from cache on logout
+      userCache.delete(req.user.id);
+    }
+    
     req.logout((err: any) => {
       if (err) return next(err);
       res.sendStatus(200);
     });
   });
 
-  app.get("/api/user", (req, res) => {
+  // Get current user
+  app.get("/api/user", (req: Request, res: Response) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     res.json(req.user);
   });

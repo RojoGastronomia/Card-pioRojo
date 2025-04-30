@@ -1,0 +1,22 @@
+{
+  "name": "sitecard-server",
+  "version": "1.0.0",
+  "description": "Server for SiteCard application",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "create-users": "tsx create-base-users.ts",
+    "migrate": "tsx -r dotenv/config db.ts migrate",
+    "dev": "tsx watch index.ts"
+  },
+  "dependencies": {
+    "crypto": "^1.0.1",
+    "dotenv": "^16.0.3",
+    "pg": "^8.15.6",
+    "shared": "file:../shared"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.1",
+    "typescript": "^5.0.0"
+  }
+}

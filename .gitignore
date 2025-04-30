@@ -56,3 +56,14 @@ server/dist
 *.temp
 .cache
 .vercel
+.qodo
+
+# Additional rules
+.env.*
+dist/
+build/
+backups/
+*.log
+.DS_Store
+.idea/
+.vscode/

@@ -3,6 +3,9 @@ import { events } from './shared/schema';
 
 async function testConnection() {
   try {
+    console.log('\nTentando conectar ao banco de dados...');
+    console.log('URL de conexão:', process.env.DATABASE_URL?.replace(/:[^:@]+@/, ':****@'));
+    
     console.log('\nBuscando todos os eventos usando Drizzle...');
     const allEvents = await db.select().from(events);
     console.log('Número de eventos:', allEvents.length);
@@ -18,8 +21,13 @@ async function testConnection() {
     }
     
   } catch (error) {
-    console.error('Erro ao buscar eventos:', error);
+    console.error('\nErro ao conectar com o banco de dados:', error);
+    if (error instanceof Error) {
+      console.error('Detalhes do erro:', error.message);
+      console.error('Stack trace:', error.stack);
+    }
   }
 }
 
+console.log('Iniciando teste de conexão...');
 testConnection(); 

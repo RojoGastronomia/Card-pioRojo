@@ -41,7 +41,7 @@ import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Search, PencilLine, Eye, Trash2, Filter, Calendar } from "lucide-react";
+import { Search, PencilLine, Eye, Trash2, Filter, Calendar, Plus, Edit, Save } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -73,18 +73,59 @@ export default function AdminEventsPage() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [garcomPrice, setGarcomPrice] = useState(260);
+  const [editingGarcom, setEditingGarcom] = useState(false);
+  const [localInput, setLocalInput] = useState("");
+  const [salaInput, setSalaInput] = useState("");
+  const [locais, setLocais] = useState([
+    {
+      nome: "16° Andar - MTC",
+      salas: [
+        "Experience Center",
+        "Innovation Factory",
+        "Microkitchen Area",
+        "MTC Team Only",
+        "Tapajos",
+        "Tocantins",
+        "Xingu"
+      ]
+    },
+    {
+      nome: "16° Andar - CAFETERIA",
+      salas: ["MTC Cafeteria"]
+    },
+    {
+      nome: "16° Andar - CUSTOMER SPACE",
+      salas: [
+        "Foyer (Verificar Disponibilidade)",
+        "Guaporé",
+        "Mamoré",
+        "MPR Copa Cabana",
+        "MPR Paraty",
+        "MPR Trancoso",
+        "Paraná",
+        "Pinheiros",
+        "Piracicada",
+        "São Francisco",
+        "Solimões"
+      ]
+    }
+  ]);
+  const [editingLocalIdx, setEditingLocalIdx] = useState<number|null>(null);
+  const [editingSalaIdx, setEditingSalaIdx] = useState<{localIdx:number, salaIdx:number}|null>(null);
+  const [newSalaInputs, setNewSalaInputs] = useState<{[key:number]: string}>({});
 
   // Fetch events
-  const { data: events, isLoading } = useQuery<Event[]>({
-    queryKey: ["/api/events"],
-    onError: (error: Error) => {
-      toast({
-        title: "Error loading events",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+  const { data: events, isLoading, error } = useQuery<Event[]>({
+    queryKey: ["/api/events"]
   });
+  if (error instanceof Error) {
+    toast({
+      title: "Error loading events",
+      description: error.message,
+      variant: "destructive",
+    });
+  }
 
   // Add event mutation
   const addEventMutation = useMutation({
@@ -203,14 +244,12 @@ export default function AdminEventsPage() {
   };
 
   // Filter events based on search, type, and status
-  const filteredEvents = events?.filter((event) => {
+  const filteredEvents = (Array.isArray(events) ? events : []).filter((event: Event) => {
     const matchesSearch = 
       event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       event.description.toLowerCase().includes(searchTerm.toLowerCase());
-    
     const matchesType = typeFilter ? event.eventType === typeFilter : true;
     const matchesStatus = statusFilter ? event.status === statusFilter : true;
-    
     return matchesSearch && matchesType && matchesStatus;
   });
 
@@ -220,8 +259,11 @@ export default function AdminEventsPage() {
       'corporate': 'Corporativo',
       'wedding': 'Casamento',
       'birthday': 'Aniversário',
-      'kids': 'Infantil',
       'coffee': 'Coffee Break',
+      'lunch': 'Almoço',
+      'brunch': 'Brunch',
+      'festival': 'Festival',
+      'cocktail': 'Coquetel'
     };
     return types[type] || type;
   };
@@ -229,7 +271,7 @@ export default function AdminEventsPage() {
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Eventos Gastronômicos</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Cadastrar Eventos</h1>
         <Button 
           onClick={() => {
             setIsEditing(false);
@@ -276,11 +318,20 @@ export default function AdminEventsPage() {
                   <DropdownMenuItem onClick={() => setTypeFilter("birthday")}>
                     Aniversário
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setTypeFilter("kids")}>
-                    Infantil
-                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setTypeFilter("coffee")}>
                     Coffee Break
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTypeFilter("lunch")}>
+                    Almoço
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTypeFilter("brunch")}>
+                    Brunch
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTypeFilter("festival")}>
+                    Festival
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTypeFilter("cocktail")}>
+                    Coquetel
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -343,7 +394,7 @@ export default function AdminEventsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredEvents.map((event) => (
+                {filteredEvents.map((event: Event) => (
                   <TableRow key={event.id} className="hover:bg-gray-50">
                     <TableCell className="font-medium">{event.title}</TableCell>
                     <TableCell>{getEventTypeDisplay(event.eventType)}</TableCell>
@@ -395,6 +446,146 @@ export default function AdminEventsPage() {
         </CardContent>
       </Card>
 
+      {/* Seção de Gerenciamento de Locais/Salas e Garçom */}
+      <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Card Valor do Garçom */}
+        <Card className="col-span-1 bg-gradient-to-br from-amber-100 to-yellow-50 border-amber-200">
+          <CardContent className="p-6 flex flex-col items-center justify-center h-full">
+            <h2 className="text-lg font-semibold mb-2 text-amber-800 flex items-center gap-2">
+              <span>💁‍♂️</span> Valor do Garçom
+            </h2>
+            <div className="flex gap-2 items-center mb-2">
+              <Input
+                type="number"
+                min={0}
+                value={garcomPrice}
+                disabled={!editingGarcom}
+                onChange={e => setGarcomPrice(Number(e.target.value))}
+                className="w-32 text-lg font-bold text-amber-900 bg-amber-50 border-amber-300"
+              />
+              {editingGarcom ? (
+                <Button onClick={()=>setEditingGarcom(false)} variant="default" className="bg-amber-500 hover:bg-amber-600 text-white"><Save size={18}/> Salvar</Button>
+              ) : (
+                <Button onClick={()=>setEditingGarcom(true)} variant="outline" className="border-amber-400 text-amber-700"><Edit size={18}/> Editar</Button>
+              )}
+            </div>
+            <span className="text-xs text-amber-700">Cobrado por garçom a cada 10 convidados</span>
+          </CardContent>
+        </Card>
+        {/* Card de adicionar novo local */}
+        <Card className="col-span-2 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+          <CardContent className="p-6">
+            <h2 className="text-lg font-semibold mb-4 text-blue-800 flex items-center gap-2">
+              <span>🏢</span> Locais e Salas
+            </h2>
+            <div className="flex gap-2 mb-4">
+              <Input
+                placeholder="Nome do local"
+                value={localInput}
+                onChange={e => setLocalInput(e.target.value)}
+                className="bg-white border-blue-200"
+              />
+              <Button
+                onClick={() => {
+                  if(localInput.trim()){
+                    setLocais([...locais, {nome: localInput.trim(), salas: []}]);
+                    setLocalInput("");
+                  }
+                }}
+                variant="default"
+                className="bg-blue-500 hover:bg-blue-600 text-white"
+                title="Adicionar Local"
+              >
+                <Plus size={18}/>
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {locais.map((local, idx) => (
+                <Card key={local.nome} className="border-blue-200 bg-white shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-center mb-2">
+                      {editingLocalIdx === idx ? (
+                        <Input
+                          value={local.nome}
+                          onChange={e => {
+                            const novos = [...locais];
+                            novos[idx].nome = e.target.value;
+                            setLocais(novos);
+                          }}
+                          onBlur={()=>setEditingLocalIdx(null)}
+                          autoFocus
+                          className="font-bold text-blue-800"
+                        />
+                      ) : (
+                        <span className="font-bold text-blue-800 text-lg">{local.nome}</span>
+                      )}
+                      <div className="flex gap-1">
+                        <Button size="icon" variant="ghost" className="hover:bg-blue-100" onClick={()=>setEditingLocalIdx(idx)}><Edit size={16} className="text-blue-600"/></Button>
+                        <Button size="icon" variant="ghost" className="hover:bg-red-100" onClick={()=>{
+                          const novos = locais.filter((_,i)=>i!==idx);
+                          setLocais(novos);
+                        }}><Trash2 size={16} className="text-red-500"/></Button>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {local.salas.map((sala, sidx) => (
+                        <span key={sala} className="inline-flex items-center px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-medium gap-1">
+                          {editingSalaIdx && editingSalaIdx.localIdx === idx && editingSalaIdx.salaIdx === sidx ? (
+                            <Input
+                              value={sala}
+                              onChange={e => {
+                                const novos = [...locais];
+                                novos[idx].salas[sidx] = e.target.value;
+                                setLocais(novos);
+                              }}
+                              onBlur={()=>setEditingSalaIdx(null)}
+                              autoFocus
+                              className="w-24 text-xs"
+                            />
+                          ) : (
+                            <span>{sala}</span>
+                          )}
+                          <Button size="icon" variant="ghost" className="hover:bg-blue-200" onClick={()=>setEditingSalaIdx({localIdx:idx,salaIdx:sidx})}><Edit size={14} className="text-blue-600"/></Button>
+                          <Button size="icon" variant="ghost" className="hover:bg-red-200" onClick={()=>{
+                            const novos = [...locais];
+                            novos[idx].salas.splice(sidx,1);
+                            setLocais(novos);
+                          }}><Trash2 size={14} className="text-red-500"/></Button>
+                        </span>
+                      ))}
+                      <span className="inline-flex items-center px-2 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-400 text-xs font-medium gap-1">
+                        <Input
+                          placeholder="Nova sala"
+                          value={newSalaInputs[idx] || ""}
+                          onChange={e => setNewSalaInputs(inputs => ({...inputs, [idx]: e.target.value}))}
+                          onKeyDown={e => {
+                            if(e.key === "Enter" && (newSalaInputs[idx] || "").trim()){
+                              const novos = [...locais];
+                              novos[idx].salas.push((newSalaInputs[idx] || "").trim());
+                              setLocais(novos);
+                              setNewSalaInputs(inputs => ({...inputs, [idx]: ""}));
+                            }
+                          }}
+                          className="w-20 text-xs bg-blue-50 border-blue-200"
+                        />
+                        <Button size="icon" variant="ghost" className="hover:bg-blue-200" onClick={()=>{
+                          if((newSalaInputs[idx] || "").trim()){
+                            const novos = [...locais];
+                            novos[idx].salas.push((newSalaInputs[idx] || "").trim());
+                            setLocais(novos);
+                            setNewSalaInputs(inputs => ({...inputs, [idx]: ""}));
+                          }
+                        }}><Plus size={14} className="text-blue-500"/></Button>
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Add/Edit Event Dialog */}
       <Dialog open={showAddDialog} onOpenChange={handleCloseDialog}>
         <DialogContent className="max-w-2xl">
@@ -436,8 +627,11 @@ export default function AdminEventsPage() {
                           <SelectItem value="corporate">Corporativo</SelectItem>
                           <SelectItem value="wedding">Casamento</SelectItem>
                           <SelectItem value="birthday">Aniversário</SelectItem>
-                          <SelectItem value="kids">Infantil</SelectItem>
                           <SelectItem value="coffee">Coffee Break</SelectItem>
+                          <SelectItem value="lunch">Almoço</SelectItem>
+                          <SelectItem value="brunch">Brunch</SelectItem>
+                          <SelectItem value="festival">Festival</SelectItem>
+                          <SelectItem value="cocktail">Coquetel</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

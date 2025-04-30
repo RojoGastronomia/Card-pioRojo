@@ -11,14 +11,17 @@ export default function AdminNavbar() {
           <Link href="/admin/dashboard">
             <Button variant={location === '/admin/dashboard' ? 'default' : 'outline'} className="rounded-full">Dashboard</Button>
           </Link>
-          <Link href="/admin/events">
-            <Button variant={location === '/admin/events' ? 'default' : 'outline'} className="rounded-full">Eventos</Button>
-          </Link>
           <Link href="/admin/users">
             <Button variant={location === '/admin/users' ? 'default' : 'outline'} className="rounded-full">Usuários</Button>
           </Link>
+          <Link href="/admin/events">
+            <Button variant={location === '/admin/events' ? 'default' : 'outline'} className="rounded-full">Cadastrar Eventos</Button>
+          </Link>
           <Link href="/admin/menus">
             <Button variant={location === '/admin/menus' ? 'default' : 'outline'} className="rounded-full">Cardápios</Button>
+          </Link>
+          <Link href="/admin/dishes">
+            <Button variant={location === '/admin/dishes' ? 'default' : 'outline'} className="rounded-full">Pratos</Button>
           </Link>
           <Link href="/admin/orders">
             <Button variant={location === '/admin/orders' ? 'default' : 'outline'} className="rounded-full">Pedidos</Button>

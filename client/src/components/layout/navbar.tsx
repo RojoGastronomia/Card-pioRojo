@@ -38,9 +38,10 @@ export function Navbar() {
   // Admin navigation links
   const adminLinks = [
     { name: "Dashboard", path: "/admin/dashboard" },
-    { name: "Eventos", path: "/admin/events" },
     { name: "Usuários", path: "/admin/users" },
+    { name: "Cadastrar Eventos", path: "/admin/events" },
     { name: "Cardápios", path: "/admin/menus-crud" },
+    { name: "Pratos", path: "/admin/dishes" },
     { name: "Pedidos", path: "/admin/orders" },
     { name: "Master", path: "/admin/master" },
   ];

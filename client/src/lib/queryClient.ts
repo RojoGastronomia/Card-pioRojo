@@ -7,20 +7,60 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+// Função para obter a base URL da API
+export function getApiBaseUrl() {
+  // Em desenvolvimento, usamos a porta 5000 para o servidor backend
+  // Em produção, o servidor e o cliente estão na mesma origem
+  const port = process.env.NODE_ENV === 'production' ? window.location.port : '5000';
+  const portSuffix = port ? `:${port}` : '';
+  
+  return `${window.location.protocol}//${window.location.hostname}${portSuffix}`;
+}
+
 export async function apiRequest(
   method: string,
-  url: string,
-  data?: unknown | undefined,
-): Promise<Response> {
-  const res = await fetch(url, {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
+  path: string,
+  body?: any,
+  options?: {
+    headers?: Record<string, string>;
+    on401?: '401page' | 'throw' | 'ignore';
+  }
+) {
+  // Default options
+  const defaultOptions = {
+    on401: 'ignore' as const
+  };
+  
+  // Merge default and provided options
+  const mergedOptions = { ...defaultOptions, ...options };
+  
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(mergedOptions.headers || {})
+  };
 
-  await throwIfResNotOk(res);
-  return res;
+  try {
+    const response = await fetch(path, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      credentials: 'include',
+    });
+
+    if (response.status === 401) {
+      console.log('[API] Received 401 response, handling according to options:', mergedOptions.on401);
+      if (mergedOptions.on401 === '401page') {
+        return response;
+      } else if (mergedOptions.on401 === 'throw') {
+        throw new Error('Unauthorized');
+      }
+    }
+
+    return response;
+  } catch (error) {
+    console.error(`API Request error for ${method} ${path}:`, error);
+    throw error;
+  }
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
@@ -29,7 +69,12 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey[0] as string, {
+    // Garantir que usamos a URL completa para a API
+    const endpoint = queryKey[0] as string;
+    const fullUrl = endpoint.startsWith('http') ? endpoint : `${getApiBaseUrl()}${endpoint}`;
+    console.log(`[QueryFn] Buscando dados de: ${fullUrl}`);
+    
+    const res = await fetch(fullUrl, {
       credentials: "include",
     });
 

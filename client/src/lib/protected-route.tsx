@@ -1,4 +1,4 @@
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "../hooks/use-auth";
 import { Loader2 } from "lucide-react";
 import { Redirect, Route } from "wouter";
 
@@ -31,7 +31,7 @@ export function ProtectedRoute({
     );
   }
 
-  if (requireAdmin && user.role !== "admin") {
+  if (requireAdmin && user.role !== "Administrador") {
     return (
       <Route path={path}>
         <Redirect to="/" />

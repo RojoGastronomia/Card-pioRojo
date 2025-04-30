@@ -1,8 +1,9 @@
-import { createContext, ReactNode, useContext } from "react";
+import { createContext, ReactNode, useContext, useCallback } from "react";
 import {
   useQuery,
   useMutation,
   UseMutationResult,
+  useQueryClient,
 } from "@tanstack/react-query";
 import { insertUserSchema, User as SelectUser, InsertUser } from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
@@ -12,6 +13,7 @@ type AuthContextType = {
   user: SelectUser | null;
   role: string | null;
   isLoading: boolean;
+  isAuthenticated: boolean;
   error: Error | null;
   loginMutation: UseMutationResult<SelectUser, Error, LoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
@@ -26,14 +28,19 @@ type LoginData = {
 export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const { toast } = useToast();
+
   const {
     data: user,
     error,
     isLoading,
-  } = useQuery<SelectUser | undefined, Error>({
+  } = useQuery<SelectUser | null>({
     queryKey: ["/api/user"],
     queryFn: getQueryFn({ on401: "returnNull" }),
+    retry: false,
+    staleTime: Infinity,
+    gcTime: Infinity
   });
 
   const loginMutation = useMutation({
@@ -44,13 +51,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
       toast({
-        title: "Login successful",
-        description: `Welcome back, ${user.name}!`,
+        title: "Login realizado com sucesso",
+        description: `Bem-vindo(a) de volta, ${user.name}!`,
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Login failed",
+        title: "Erro ao fazer login",
         description: error.message,
         variant: "destructive",
       });
@@ -65,13 +72,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
       toast({
-        title: "Registration successful",
-        description: `Welcome, ${user.name}!`,
+        title: "Registro realizado com sucesso",
+        description: `Bem-vindo(a), ${user.name}!`,
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Registration failed",
+        title: "Erro ao fazer registro",
         description: error.message,
         variant: "destructive",
       });
@@ -84,27 +91,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: () => {
       queryClient.setQueryData(["/api/user"], null);
+      queryClient.removeQueries();
       toast({
-        title: "Logout successful",
-        description: "You have been logged out successfully.",
+        title: "Logout realizado com sucesso",
+        description: "Até logo!",
       });
-      window.location.href = "/auth";
     },
     onError: (error: Error) => {
       toast({
-        title: "Logout failed",
+        title: "Erro ao fazer logout",
         description: error.message,
         variant: "destructive",
       });
     },
   });
 
+  const isAuthenticated = !!user;
+  const role = user?.role ?? null;
+
   return (
     <AuthContext.Provider
       value={{
         user: user ?? null,
-        role: user?.role ?? null,
+        role,
         isLoading,
+        isAuthenticated,
         error,
         loginMutation,
         logoutMutation,
