@@ -13,7 +13,8 @@
     "crypto": "^1.0.1",
     "dotenv": "^16.0.3",
     "pg": "^8.15.6",
-    "shared": "file:../shared"
+    "shared": "file:../shared",
+    "tsx": "^4.7.0"
   },
   "devDependencies": {
     "tsx": "^4.7.1",
