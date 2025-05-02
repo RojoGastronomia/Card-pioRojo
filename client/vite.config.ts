@@ -1,3 +1,4 @@
+
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
@@ -12,6 +13,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    host: '0.0.0.0',
     proxy: {
       "/api": {
         target: "http://localhost:3005",
@@ -20,7 +22,7 @@ export default defineConfig({
       }
     },
     allowedHosts: [
-      "4c2efc99-192a-4f77-9ade-f6501f6570f8-00-3kgswvjuwcyc.janeway.replit.dev"
+      ".replit.dev"
     ]
   }
 });
