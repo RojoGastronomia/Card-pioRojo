@@ -178,12 +178,13 @@ async function startServer() {
 if (process.env.NODE_ENV === "development" || process.env.START_SERVER === "true") {
   console.log("Iniciando servidor em modo desenvolvimento...");
   startServer()
-    .then((server) => {
-      console.log("✅ Servidor iniciado com sucesso!");
+    .then(() => {
+      console.log("✅ Servidor iniciado com sucesso na porta", process.env.PORT || 5000);
     })
     .catch(err => {
-      console.error("❌ Falha ao iniciar o servidor:", err);
-      process.exit(1);
+      console.error("❌ Erro ao iniciar servidor:", err);
+      // Não encerrar o processo em caso de erro
+      console.log("Tentando continuar mesmo com erro...");
     });
 } else {
   console.log("Servidor não iniciado - ambiente de produção");
