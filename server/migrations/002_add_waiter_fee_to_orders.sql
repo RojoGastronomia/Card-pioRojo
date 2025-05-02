@@ -1,1 +1,0 @@
-ALTER TABLE orders ADD COLUMN waiter_fee double precision NOT NULL DEFAULT 0; 
