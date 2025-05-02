@@ -81,7 +81,7 @@ async function startServer() {
   try {
     console.log("Iniciando servidor...");
     logger.info("Iniciando servidor...");
-    
+
     console.log("Executando migrações...");
     try {
       await runMigrations();
@@ -91,24 +91,24 @@ async function startServer() {
       logger.error({ error: migrationError }, "Erro ao executar migrações");
       // Continuar mesmo com erro nas migrações
     }
-    
+
     console.log("Registrando rotas...");
     try {
       // Register all routes
       const server = createServer(app);
       await registerRoutes(app);
       console.log("Rotas registradas com sucesso.");
-      
+
       // Register basic stats route
       console.log("Registrando rota de estatísticas...");
       registerBasicStatsRoute(app);
-      
+
       // Register SSE route and setup periodic updates
       console.log("Configurando SSE...");
       registerSSERoute(app);
       setupPeriodicUpdates();
       setupRealTimeUpdates(app);
-      
+
       // Middleware for logging errors
       app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
         logger.error({
@@ -117,13 +117,13 @@ async function startServer() {
           path: req.path,
           method: req.method
         }, "Erro não tratado");
-        
+
         res.status(500).json({
           error: "Erro interno do servidor",
           message: process.env.NODE_ENV === 'production' ? 'Um erro ocorreu' : err.message
         });
       });
-      
+
       // Configurar Vite em desenvolvimento ou servir estáticos em produção
       console.log("Configurando servidor de arquivos estáticos...");
       if (process.env.NODE_ENV === "development") {
@@ -139,28 +139,28 @@ async function startServer() {
       } else {
         serveStatic(app);
       }
-      
+
       // Start the server
       const port = process.env.PORT || 5000;
       server.listen(port, '0.0.0.0', () => {
         console.log(`Servidor iniciado em http://0.0.0.0:${port}`);
         logger.info(`Servidor iniciado em http://0.0.0.0:${port}`);
       });
-      
+
       // Lidar com encerramento do servidor
       process.on('SIGTERM', () => {
         logger.info('Encerrando servidor');
         sseManager.shutdown();
         process.exit(0);
       });
-      
+
       // Também tratar SIGINT para garantir encerramento limpo em desenvolvimento
       process.on('SIGINT', () => {
         logger.info('Recebido sinal SIGINT, desligando servidor...');
         sseManager.shutdown();
         process.exit(0);
       });
-      
+
       return server;
     } catch (routesError) {
       console.error("ERRO AO REGISTRAR ROTAS:", routesError);
@@ -186,4 +186,4 @@ if (process.env.NODE_ENV !== "production" || process.env.START_SERVER === "true"
 }
 
 // Exportar app para uso em ambiente serverless
-export default app; 
+export default app;
