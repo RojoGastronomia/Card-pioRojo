@@ -1,2 +1,2 @@
 -- Add image_url column to menus table
-ALTER TABLE menus ADD COLUMN image_url TEXT; 
+-- ALTER TABLE menus ADD COLUMN image_url TEXT;
