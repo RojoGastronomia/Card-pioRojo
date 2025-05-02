@@ -142,9 +142,9 @@ async function startServer() {
       
       // Start the server
       const port = process.env.PORT || 5000;
-      server.listen(port, () => {
-        console.log(`Servidor iniciado na porta ${port}`);
-        logger.info(`Servidor iniciado na porta ${port}`);
+      server.listen(port, '0.0.0.0', () => {
+        console.log(`Servidor iniciado em http://0.0.0.0:${port}`);
+        logger.info(`Servidor iniciado em http://0.0.0.0:${port}`);
       });
       
       // Lidar com encerramento do servidor
