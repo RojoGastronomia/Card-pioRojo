@@ -1,0 +1,11 @@
+# Ignorar arquivos e pastas desnecessários para build Docker
+backups/
+logs/
+migrations/
+temp/
+*.log
+*.sql
+*.bak
+*.txt
+node_modules/
+dist/
