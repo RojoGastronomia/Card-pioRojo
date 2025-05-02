@@ -30,4 +30,4 @@ async function testConnection() {
 }
 
 console.log('Iniciando teste de conexão...');
-testConnection(); 
+testConnection();

@@ -89,7 +89,7 @@ async function startServer() {
     } catch (migrationError) {
       console.error("ERRO NAS MIGRAÇÕES:", migrationError);
       logger.error({ error: migrationError }, "Erro ao executar migrações");
-      // Continuar mesmo com erro nas migrações
+      console.log("Continuando servidor mesmo com erro nas migrações...");
     }
     
     console.log("Registrando rotas...");
@@ -186,4 +186,4 @@ if (process.env.NODE_ENV !== "production" || process.env.START_SERVER === "true"
 }
 
 // Exportar app para uso em ambiente serverless
-export default app; 
+export default app;
