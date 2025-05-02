@@ -11,11 +11,19 @@
     "start": "npx tsx index.ts"
   },
   "dependencies": {
+    "cors": "^2.8.5",
     "crypto": "^1.0.1",
-    "dotenv": "^16.0.3",
+    "date-fns": "^4.1.0",
+    "dotenv": "^16.5.0",
+    "drizzle-orm": "^0.43.1",
+    "express": "^5.1.0",
+    "express-session": "^1.18.1",
+    "passport": "^0.7.0",
     "pg": "^8.15.6",
     "shared": "file:../shared",
-    "tsx": "^4.7.0"
+    "tsx": "^4.7.0",
+    "vite": "^6.3.4",
+    "zod": "^3.24.3"
   },
   "devDependencies": {
     "typescript": "^5.0.0"
