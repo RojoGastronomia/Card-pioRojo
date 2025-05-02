@@ -1,0 +1,11 @@
+{
+  "buildCommand": "npm install",
+  "startCommand": "npm start",
+  "installCommand": "npm install",
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@railway/node"
+    }
+  ]
+} 
