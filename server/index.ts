@@ -174,15 +174,19 @@ async function startServer() {
   }
 }
 
-// Iniciar o servidor apenas se não estiver em ambiente serverless
-if (process.env.NODE_ENV !== "production" || process.env.START_SERVER === "true") {
-  console.log("Chamando função startServer...");
+// Iniciar o servidor sempre em desenvolvimento
+if (process.env.NODE_ENV === "development" || process.env.START_SERVER === "true") {
+  console.log("Iniciando servidor em modo desenvolvimento...");
   startServer()
-    .then(() => console.log("Servidor iniciado com sucesso!"))
+    .then((server) => {
+      console.log("✅ Servidor iniciado com sucesso!");
+    })
     .catch(err => {
-      console.error("Falha ao iniciar o servidor:", err);
+      console.error("❌ Falha ao iniciar o servidor:", err);
       process.exit(1);
     });
+} else {
+  console.log("Servidor não iniciado - ambiente de produção");
 }
 
 // Exportar app para uso em ambiente serverless
