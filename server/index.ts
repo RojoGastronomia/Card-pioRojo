@@ -90,6 +90,7 @@ async function startServer() {
       console.error("ERRO NAS MIGRAÇÕES:", migrationError);
       logger.error({ error: migrationError }, "Erro ao executar migrações");
       // Continuar mesmo com erro nas migrações
+      console.log("Continuando servidor mesmo com erro nas migrações...");
     }
 
     console.log("Registrando rotas...");
