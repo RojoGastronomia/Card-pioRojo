@@ -1,8 +1,7 @@
 {
   "version": 2,
-  "installCommand": "npm install",
-  "buildCommand": "cd client && npm install && npm run build",
-  "outputDirectory": "client/dist",
+  "buildCommand": "npm install && npm run build",
+  "outputDirectory": "dist",
   "framework": "vite",
   "regions": ["gru1"]
 } 
