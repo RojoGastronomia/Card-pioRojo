@@ -12,6 +12,7 @@ interface StatsCardProps {
   iconBgColor?: string;
   iconColor?: string;
   subtitle?: string;
+  showPotential?: boolean;
 }
 
 export default function StatsCard({
@@ -23,6 +24,7 @@ export default function StatsCard({
   iconBgColor = "bg-primary/10",
   iconColor = "text-primary",
   subtitle,
+  showPotential = true,
 }: StatsCardProps) {
   // Debug log when component is rendered
   useEffect(() => {
@@ -32,13 +34,14 @@ export default function StatsCard({
         valueType: typeof value,
         secondaryValue,
         secondaryValueType: typeof secondaryValue,
+        showPotential,
         formatted: {
           primary: typeof value === 'number' ? formatCurrency(value) : value,
           secondary: typeof secondaryValue === 'number' ? formatCurrency(secondaryValue) : secondaryValue,
         }
       });
     }
-  }, [title, value, secondaryValue]);
+  }, [title, value, secondaryValue, showPotential]);
 
   // Format number value with thousands separator
   const formatValue = (val: number | string) => {
@@ -83,10 +86,11 @@ export default function StatsCard({
         originalValue: value,
         parsedValue: safeValue,
         originalSecondaryValue: secondaryValue,
-        parsedSecondaryValue: safeSecondaryValue
+        parsedSecondaryValue: safeSecondaryValue,
+        showPotential
       });
     }
-  }, [title, value, secondaryValue, safeValue, safeSecondaryValue]);
+  }, [title, value, secondaryValue, safeValue, safeSecondaryValue, showPotential]);
 
   return (
     <Card className="hover:shadow-md transition-all duration-200 cursor-pointer">
@@ -107,20 +111,21 @@ export default function StatsCard({
                 {typeof safeValue === 'number' ? formatCurrency(safeValue) : safeValue}
               </p>
               
-              {/* Always show potential revenue for faturamento */}
-              <p className="text-lg font-medium text-emerald-600 mt-1">
-                {Number(safeValue) === 0 ? '' : '+ '}
-                {typeof safeSecondaryValue === 'number' ? formatCurrency(safeSecondaryValue) : safeSecondaryValue} 
-                <span className="text-xs font-normal">
-                  (potencial)
-                </span>
-              </p>
+              {/* Mostrar potencial apenas se showPotential for true */}
+              {showPotential && safeSecondaryValue && Number(safeSecondaryValue) > 0 && (
+                <p className="text-lg font-medium text-emerald-600 mt-1">
+                  + {typeof safeSecondaryValue === 'number' ? formatCurrency(safeSecondaryValue) : safeSecondaryValue} 
+                  <span className="text-xs font-normal">
+                    (potencial)
+                  </span>
+                </p>
+              )}
             </>
           ) : (
             <>
               <p className="text-3xl font-semibold text-gray-900">{formatValue(value)}</p>
               
-              {secondaryValue && (
+              {secondaryValue && showPotential && (
                 <p className="text-lg font-medium text-emerald-600 mt-1">
                   + {typeof secondaryValue === 'number' && secondaryValue > 0 ? formatValue(secondaryValue) : secondaryValue} <span className="text-xs font-normal">(potencial)</span>
                 </p>

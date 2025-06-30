@@ -168,7 +168,7 @@ export default function MenusCrudPage() {
                       <div className="flex justify-end space-x-2">
                          {/* Link/Button to manage dishes for this menu - TO DO */}
                         <Link href={`/admin/menus/${menu.id}/dishes`}> 
-                          <Button variant="outline" size="sm">Ver Pratos</Button>
+                          <Button variant="outline" size="sm">Gerenciar Pratos</Button>
                         </Link>
                         <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(menu)}>
                           <Pencil className="h-4 w-4 text-gray-500" />

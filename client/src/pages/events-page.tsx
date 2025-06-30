@@ -14,22 +14,27 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useLanguage } from "@/context/language-context";
 
 export default function EventsPage() {
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
   const { data: events, isLoading } = useQuery<Event[]>({
-    queryKey: ["/api/events"],
+    queryKey: ["/api/events", language],
     queryFn: async () => {
-      const response = await fetch("/api/events");
+      const response = await fetch(`/api/events?lang=${language}`);
       if (!response.ok) {
         throw new Error("Failed to fetch events");
       }
       return response.json();
     },
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
   const handleEventClick = (event: Event) => {
@@ -49,14 +54,43 @@ export default function EventsPage() {
 
   return (
     <main className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-800 mb-8">Eventos Disponíveis</h1>
+      <h1 className="text-2xl font-bold text-gray-800 mb-2">{t('events', 'title')}</h1>
+      <p className="text-gray-600 text-lg mb-8">{t('events', 'subtitle')}</p>
+
+      {/* Banner igual ao da HomePage */}
+      <div className="relative w-full h-[400px] rounded-lg overflow-hidden mb-12">
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/90 to-primary/70 z-10"></div>
+        <img
+          src="https://public.readdy.ai/ai/img_res/b8905632f9218145207ecce49d4cdfb3.jpg"
+          alt={t('events', 'title')}
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 flex flex-col justify-center items-start p-8 md:p-16 z-20">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+            {t('events', 'bannerTitle')}
+          </h2>
+          <p className="text-white text-lg mb-6 max-w-xl">
+            {t('events', 'bannerSubtitle')}
+          </p>
+          <button 
+            className="bg-white text-primary px-6 py-3 rounded-button font-medium hover:bg-white/90 transition-colors cursor-default"
+            disabled
+          >
+            {t('events', 'viewAvailableEvents')}
+          </button>
+        </div>
+      </div>
+
+      <h2 className="text-2xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
+        <span role="img" aria-label="calendar">📅</span> {t('events', 'availableEvents')}
+      </h2>
 
       <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
         <div className="relative w-full md:w-auto flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
           <Input
             type="text"
-            placeholder="Buscar eventos..."
+            placeholder={t('events', 'searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -68,21 +102,18 @@ export default function EventsPage() {
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="flex items-center gap-2">
                 <Filter size={16} />
-                {status ? `Status: ${status}` : "Filtrar por status"}
+                {status ? `${t('common', 'status')}: ${t('common', status)}` : t('events', 'filterByStatus')}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem onClick={() => setStatus(null)}>
-                Todos os status
+                {t('common', 'all')}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatus("active")}>
-                Ativos
+              <DropdownMenuItem onClick={() => setStatus("available")}>
+                {t('common', 'available')}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatus("completed")}>
-                Concluídos
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatus("cancelled")}>
-                Cancelados
+              <DropdownMenuItem onClick={() => setStatus("unavailable")}>
+                {t('common', 'unavailable')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -117,9 +148,9 @@ export default function EventsPage() {
         </div>
       ) : (
         <div className="text-center py-12">
-          <h3 className="text-xl font-medium text-gray-700">Nenhum evento encontrado</h3>
+          <h3 className="text-xl font-medium text-gray-700">{t('events', 'noEventsFound')}</h3>
           <p className="text-gray-500 mt-2">
-            Tente ajustar seus filtros ou busque por outros termos.
+            {t('events', 'adjustFilters')}
           </p>
         </div>
       )}

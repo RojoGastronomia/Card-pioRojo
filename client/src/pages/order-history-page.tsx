@@ -5,16 +5,22 @@ import { toast } from "sonner";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { OrderDetailsModal } from "@/components/orders/order-details-modal";
 import { PaymentModal } from "@/components/orders/payment-modal";
+import { BoletoModal } from "@/components/orders/boleto-modal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { LogIn, FileText } from "lucide-react";
+import { LogIn, FileText, Download } from "lucide-react";
+import { useLanguage } from "@/context/language-context";
 
 const statusConfig = {
   pending: {
     label: "Pendente",
     className: "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+  },
+  aguardando_pagamento: {
+    label: "Aguardando Pagamento",
+    className: "bg-orange-100 text-orange-800 hover:bg-orange-100"
   },
   confirmed: {
     label: "Confirmado",
@@ -35,10 +41,14 @@ export default function OrderHistoryPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [paymentOrder, setPaymentOrder] = useState<Order | null>(null);
+  const [boletoOrder, setBoletoOrder] = useState<Order | null>(null);
+  const [boletoEvent, setBoletoEvent] = useState<Event | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showOrderDetailsModal, setShowOrderDetailsModal] = useState(false);
+  const [showBoletoModal, setShowBoletoModal] = useState(false);
   const [location, navigate] = useLocation();
   const [hasNewOrder, setHasNewOrder] = useState(false);
+  const { t } = useLanguage();
 
   // Only run the query if the user is authenticated
   const ordersQuery = useQuery<Order[]>({
@@ -155,6 +165,45 @@ export default function OrderHistoryPage() {
     toast.success("Pagamento realizado com sucesso! Seu pedido foi confirmado.");
     ordersQuery.refetch();
   };
+
+  const handleBoletoClick = useCallback((order: Order) => {
+    // Verificar se o pedido tem boleto antes de abrir o modal
+    if (!order.boletoUrl) {
+      toast.error("Boleto ainda não foi preparado. Entre em contato com o suporte ou aguarde o envio por email.");
+      return;
+    }
+    
+    const event = getEventById(order.eventId);
+    if (event) {
+      setBoletoOrder(order);
+      setBoletoEvent(event);
+      setShowBoletoModal(true);
+    }
+  }, [getEventById]);
+
+  const handleConfirmPayment = async (order: Order) => {
+    try {
+      const response = await fetch(`/api/orders/${order.id}/confirm-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        toast.success("Pagamento confirmado! Seu pedido foi atualizado para 'Confirmado'.");
+        ordersQuery.refetch();
+      } else {
+        const error = await response.json();
+        toast.error(error.message || "Erro ao confirmar pagamento");
+      }
+    } catch (error) {
+      console.error("Erro ao confirmar pagamento:", error);
+      toast.error("Erro ao confirmar pagamento. Tente novamente.");
+      throw error; // Re-throw para o modal tratar
+    }
+  };
   
   // Verificar se existe um parâmetro 'pay' na URL
   useEffect(() => {
@@ -175,25 +224,23 @@ export default function OrderHistoryPage() {
     }
   }, [orders, handlePaymentClick, isAuthenticated]);
 
+  const statusLabels = {
+    'pending': t('orders', 'statusPending'),
+    'processing': t('orders', 'statusProcessing'),
+    'completed': t('orders', 'statusCompleted'),
+    'cancelled': t('orders', 'statusCancelled')
+  };
+
   if (!isAuthenticated) {
     return (
-      <div className="container mx-auto py-8">
-        <h1 className="text-2xl font-bold mb-6">Meus Pedidos</h1>
-        
-        <div className="bg-white p-8 rounded-lg shadow-md text-center max-w-md mx-auto">
-          <div className="inline-block p-3 bg-primary/10 rounded-full mb-4">
-            <FileText size={32} className="text-primary" />
-          </div>
-          <h2 className="text-xl font-semibold mb-2">Faça login para ver seus pedidos</h2>
-          <p className="text-gray-600 mb-6">
-            Para visualizar seu histórico de pedidos, é necessário entrar na sua conta.
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">{t('orderHistory', 'loginRequired')}</h2>
+          <p className="text-gray-600 mb-4">
+            {t('orderHistory', 'loginToViewHistory')}
           </p>
-          <Button 
-            onClick={() => navigate("/auth")} 
-            className="w-full flex items-center justify-center"
-          >
-            <LogIn className="mr-2 h-4 w-4" />
-            Entrar na minha conta
+          <Button onClick={() => navigate("/auth")}>
+            {t('auth', 'login')}
           </Button>
         </div>
       </div>
@@ -201,11 +248,11 @@ export default function OrderHistoryPage() {
   }
 
   if (ordersQuery.error) {
-    toast.error("Erro ao carregar pedidos");
+    toast.error(t('orderHistory', 'errorLoadingOrders'));
   }
 
   if (eventsQuery.error) {
-    toast.error("Erro ao carregar eventos");
+    toast.error(t('orderHistory', 'eventNotFound'));
   }
 
   return (
@@ -298,12 +345,34 @@ export default function OrderHistoryPage() {
                       >
                           Detalhes
                         </Button>
+                      {/*
                       {order.status === "pending" && (
                         <Button 
                           className="flex-1"
                           onClick={() => handlePaymentClick(order)}
                         >
                             Efetuar Pagamento
+                          </Button>
+                        )}
+                      */}
+                      {order.status === "aguardando_pagamento" && order.boletoUrl && (
+                        <Button 
+                          className="flex-1 flex items-center gap-2"
+                          onClick={() => handleBoletoClick(order)}
+                        >
+                          <Download className="h-4 w-4" />
+                          Baixar Boleto
+                        </Button>
+                      )}
+                      
+                      {order.status === "aguardando_pagamento" && !order.boletoUrl && (
+                        <Button 
+                          className="flex-1 flex items-center gap-2"
+                          variant="outline"
+                          disabled
+                        >
+                          <FileText className="h-4 w-4" />
+                          Boleto em Preparação
                           </Button>
                         )}
                       </div>
@@ -321,24 +390,18 @@ export default function OrderHistoryPage() {
         </div>
       )}
 
+      {selectedOrder && selectedEvent && (
       <OrderDetailsModal
         order={selectedOrder}
         event={selectedEvent}
         open={showOrderDetailsModal}
         onOpenChange={(open) => {
           console.log(`[DEBUG] Modal de detalhes ${open ? 'abrindo' : 'fechando'} para pedido ID: ${selectedOrder?.id}`);
-          
-          // Se estamos abrindo, apenas atualize o estado
           if (open) {
             setShowOrderDetailsModal(true);
             return;
           }
-          
-          // Se estamos fechando, primeiro atualizar o estado do modal
           setShowOrderDetailsModal(false);
-          
-          // Então limpamos os dados do pedido após um pequeno atraso
-          // para evitar que o conteúdo desapareça durante a animação de fechamento
           setTimeout(() => {
             console.log(`[DEBUG] Limpando dados do pedido após fechamento do modal`);
             setSelectedOrder(null);
@@ -346,13 +409,26 @@ export default function OrderHistoryPage() {
           }, 300);
         }}
       />
+      )}
 
+      {boletoOrder && boletoEvent && (
+        <BoletoModal
+          order={boletoOrder}
+          event={boletoEvent}
+          open={showBoletoModal}
+          onOpenChange={setShowBoletoModal}
+          onConfirmPayment={handleConfirmPayment}
+      />
+      )}
+
+      {/*
       <PaymentModal
         order={paymentOrder}
         open={showPaymentModal}
         onOpenChange={setShowPaymentModal}
         onPaymentSuccess={handlePaymentSuccess}
       />
+      */}
     </div>
   );
 }

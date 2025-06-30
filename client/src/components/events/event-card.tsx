@@ -4,6 +4,7 @@ import { Menu as MenuIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getQueryFn } from "@/lib/queryClient";
+import { useLanguage } from "@/context/language-context";
 
 interface EventCardProps {
   event: Event;
@@ -12,11 +13,18 @@ interface EventCardProps {
 }
 
 export default function EventCard({ event, onClick, onMenuOptionsClick }: EventCardProps) {
+  const { t, language } = useLanguage();
   const { data: menus = [] } = useQuery<Menu[]>({
-    queryKey: [`/api/events/${event.id}/menus`],
-    queryFn: getQueryFn({ on401: "throw" }),
+    queryKey: [`/api/events/${event.id}/menus`, language],
+    queryFn: getQueryFn({ on401: "throw", language }),
     enabled: !!event.id,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
+
+  const eventTitle = event.titleEn && language === 'en' ? event.titleEn : event.title;
+  const eventDescription = event.descriptionEn && language === 'en' ? event.descriptionEn : event.description;
 
   return (
     <Card 
@@ -25,19 +33,19 @@ export default function EventCard({ event, onClick, onMenuOptionsClick }: EventC
     >
       <div className="relative h-48">
         <img 
-          src={event.imageUrl} 
-          alt={event.title} 
+          src={event.imageUrl || "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80"} 
+          alt={eventTitle} 
           className="w-full h-full object-cover"
         />
       </div>
 
       <div className="p-5">
         <h2 className="text-xl font-semibold text-gray-800 mb-2">
-          {event.title}
+          {eventTitle}
         </h2>
 
         <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-          {event.description}
+          {eventDescription}
         </p>
 
         <div className="flex items-center justify-between">
@@ -46,11 +54,15 @@ export default function EventCard({ event, onClick, onMenuOptionsClick }: EventC
             onClick={(e) => onMenuOptionsClick?.(e, event)}
           >
             <MenuIcon className="w-4 h-4 mr-2" />
-            <span>{menus.length} {menus.length === 1 ? 'opção de menu' : 'opções de menu'}</span>
+            <span>
+              {menus.length} {menus.length === 1 
+                ? t('common', 'menuOption') 
+                : t('common', 'menuOptions')}
+            </span>
           </div>
 
           <span className="bg-emerald-500 text-white text-xs px-3 py-1 rounded-full whitespace-nowrap">
-            Disponível
+            {t('common', 'available')}
           </span>
         </div>
       </div>

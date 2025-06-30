@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, boolean, doublePrecision, json, varchar, primaryKey, numeric } from "drizzle-orm/pg-core"; "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, real, timestamp } from "drizzle-orm/pg-core";
 import { relations } from 'drizzle-orm';
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -12,8 +12,8 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   role: text("role").notNull().default("client"),
   phone: text("phone"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const userSchema = z.object({
@@ -22,15 +22,23 @@ export const userSchema = z.object({
   name: z.string(),
   username: z.string(),
   password: z.string(),
-  role: z.string().default("client"),
+  role: z.enum(["client", "Administrador", "Comercial"]).default("client"),
   createdAt: z.date(),
   updatedAt: z.date()
 });
 
-export const insertUserSchema = userSchema.omit({ 
-  id: true, 
-  createdAt: true,
-  updatedAt: true 
+export const insertUserSchema = z.object({
+  name: z.string().min(2, { message: "O nome deve ter pelo menos 2 caracteres" }),
+  username: z.string().min(2, { message: "O nome de usuário deve ter pelo menos 2 caracteres" }),
+  email: z.string().email({ message: "Por favor, insira um endereço de e-mail válido" }),
+  password: z.string()
+    .min(8, { message: "A senha deve ter pelo menos 8 caracteres" })
+    .regex(/[A-Z]/, { message: "A senha deve conter pelo menos uma letra maiúscula" })
+    .regex(/[a-z]/, { message: "A senha deve conter pelo menos uma letra minúscula" })
+    .regex(/[0-9]/, { message: "A senha deve conter pelo menos um número" })
+    .regex(/[^A-Za-z0-9]/, { message: "A senha deve conter pelo menos um caractere especial (ex: @, #, $, !)" }),
+  role: z.enum(["client", "Administrador", "Comercial"]).default("client"),
+  phone: z.string().optional(),
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -41,12 +49,14 @@ export const events = pgTable("events", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description").notNull(),
+  titleEn: text("title_en"),
+  descriptionEn: text("description_en"),
   imageUrl: text("image_url").notNull(),
   location: text("location"),
   eventType: text("event_type").notNull(),
   menuOptions: integer("menu_options").notNull().default(2),
   status: text("status").notNull().default("available"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const insertEventSchema = createInsertSchema(events).omit({ id: true, createdAt: true });
@@ -58,9 +68,11 @@ export const menus = pgTable("menus", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description").notNull(),
-  price: numeric("price").notNull(),
+  nameEn: text("name_en"),
+  descriptionEn: text("description_en"),
+  price: real("price").notNull(),
   image_url: text("image_url"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const insertMenuSchema = createInsertSchema(menus).omit({ id: true, createdAt: true });
@@ -72,11 +84,14 @@ export const dishes = pgTable("dishes", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description").notNull(),
-  price: doublePrecision("price").notNull(),
+  nameEn: text("name_en"),
+  descriptionEn: text("description_en"),
+  price: real("price").notNull(),
   category: text("category").notNull(),
-  menuId: integer("menu_id"),
+  categoryEn: text("category_en"),
+  menuId: integer("menu_id").references(() => menus.id),
   imageUrl: text("image_url"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const insertDishSchema = createInsertSchema(dishes).omit({ id: true, createdAt: true, menuId: true });
@@ -85,19 +100,17 @@ export type Dish = typeof dishes.$inferSelect;
 
 // EventMenus join table
 export const eventMenus = pgTable("event_menus", {
-  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: 'cascade' }),
-  menuId: integer("menu_id").notNull().references(() => menus.id, { onDelete: 'cascade' }),
-}, (table) => ({
-  pk: primaryKey({ columns: [table.eventId, table.menuId] })
-}));
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => events.id),
+  menuId: integer("menu_id").notNull().references(() => menus.id),
+});
 
 // Menu Dishes join table
 export const menuDishes = pgTable("menu_dishes", {
-  menuId: integer("menu_id").notNull().references(() => menus.id, { onDelete: 'cascade' }),
-  dishId: integer("dish_id").notNull().references(() => dishes.id, { onDelete: 'cascade' }),
-}, (table) => ({
-  pk: primaryKey({ columns: [table.menuId, table.dishId] })
-}));
+  id: serial("id").primaryKey(),
+  menuId: integer("menu_id").notNull().references(() => menus.id),
+  dishId: integer("dish_id").notNull().references(() => dishes.id),
+});
 
 // Dishes relation to Menus (Many-to-One)
 export const dishesRelations = relations(dishes, ({ one, many }) => ({
@@ -149,18 +162,19 @@ export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
   eventId: integer("event_id").notNull(),
-  venueId: integer("venue_id").references(() => venues.id),
-  roomId: integer("room_id").references(() => rooms.id),
+  venueId: integer("venue_id"),
+  roomId: integer("room_id"),
   status: text("status").notNull().default("pending"),
-  date: timestamp("date").notNull(),
+  date: timestamp("date", { withTimezone: true }).notNull(),
   guestCount: integer("guest_count").notNull(),
   menuSelection: text("menu_selection"),
-  totalAmount: doublePrecision("total_amount").notNull(),
-  waiterFee: doublePrecision("waiter_fee").notNull().default(0),
+  totalAmount: real("total_amount").notNull(),
+  waiterFee: real("waiter_fee").notNull().default(0),
   additionalInfo: text("additional_info"),
   adminNotes: text("admin_notes"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  boletoUrl: text("boleto_url"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const orderSchema = z.object({
@@ -180,6 +194,7 @@ export const orderSchema = z.object({
   waiterFee: z.number().default(0),
   additionalInfo: z.any().optional(),
   adminNotes: z.string().optional(),
+  boletoUrl: z.string().optional(),
   createdAt: z.date(),
   updatedAt: z.date()
 });
@@ -216,8 +231,8 @@ export const venues = pgTable("venues", {
   capacity: integer("capacity").notNull(),
   description: text("description"),
   status: text("status").notNull().default("active"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const insertVenueSchema = createInsertSchema(venues).omit({ id: true, createdAt: true, updatedAt: true });
@@ -227,13 +242,13 @@ export type Venue = typeof venues.$inferSelect;
 // Rooms table
 export const rooms = pgTable("rooms", {
   id: serial("id").primaryKey(),
-  venueId: integer("venue_id").notNull().references(() => venues.id, { onDelete: 'cascade' }),
+  venueId: integer("venue_id").notNull().references(() => venues.id),
   name: text("name").notNull(),
   capacity: integer("capacity").notNull(),
   description: text("description"),
   status: text("status").notNull().default("available"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const insertRoomSchema = createInsertSchema(rooms).omit({ id: true, createdAt: true, updatedAt: true });
@@ -255,22 +270,18 @@ export const roomsRelations = relations(rooms, ({ one, many }) => ({
   orders: many(orders),
 }));
 
-// Orders relations
-export const ordersRelations = relations(orders, ({ one }) => ({
-  user: one(users, {
-    fields: [orders.userId],
-    references: [users.id],
-  }),
-  event: one(events, {
-    fields: [orders.eventId],
-    references: [events.id],
-  }),
-  venue: one(venues, {
-    fields: [orders.venueId],
-    references: [venues.id],
-  }),
-  room: one(rooms, {
-    fields: [orders.roomId],
-    references: [rooms.id],
-  }),
-}));
+// Categories table
+export const categories = pgTable(
+  "categories",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    nameEn: text("name_en"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  { schema: "public" }
+);
+
+export type Category = typeof categories.$inferSelect;
+export type InsertCategory = typeof categories.$inferInsert;

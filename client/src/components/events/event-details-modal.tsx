@@ -5,10 +5,13 @@ import { Event, Menu, Dish } from "@shared/schema";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { getApiBaseUrl } from "@/lib/queryClient";
+import { useLanguage } from "@/context/language-context";
 import { 
   Dialog, 
   DialogContent,
   DialogHeader,
+  DialogTitle,
+  DialogDescription,
   DialogTrigger,
   DialogClose
 } from "@/components/ui/dialog";
@@ -29,6 +32,7 @@ interface EventDetailsModalProps {
 export default function EventDetailsModal({ event, onClose }: EventDetailsModalProps) {
   const { user } = useAuth();
   const { addToCart } = useCart();
+  const { language, t } = useLanguage();
   const [eventDate, setEventDate] = useState("");
   const [eventTime, setEventTime] = useState("12:00"); // Horário padrão meio-dia
   const [guestCount, setGuestCount] = useState<number>(20);
@@ -88,7 +92,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
         setMenuItemsLoading(true);
         
         const apiBase = getApiBaseUrl();
-        const url = `${apiBase}/api/events/${event.id}/menus`;
+        const url = `${apiBase}/api/events/${event.id}/menus?language=${language}`;
         
         console.log(`Carregando menus do evento ${event.id} da URL: ${url}`);
         
@@ -106,7 +110,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
     };
 
     fetchMenus();
-  }, [event.id]);
+  }, [event.id, language]);
 
   const fetchDishesForMenu = async (menuId: number) => {
     try {
@@ -213,7 +217,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
     const cartItem = {
       id: Date.now(),
       eventId: event.id,
-      title: event.title,
+      title: event.translatedTitle,
       imageUrl: event.imageUrl,
       date: eventDate,
       time: eventTime,
@@ -226,7 +230,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
     };
 
     addToCart(cartItem);
-    toast.success(`${event.title} foi adicionado ao seu carrinho.`);
+    toast.success(`${event.translatedTitle} foi adicionado ao seu carrinho.`);
     onClose();
   };
 
@@ -266,7 +270,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] p-0 gap-0">
         <DialogHeader className="flex justify-between items-center p-4 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-800">{event.title}</h2>
+          <h2 className="text-xl font-semibold text-gray-800">{event.translatedTitle}</h2>
         </DialogHeader>
 
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
@@ -274,33 +278,33 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
             <div className="md:w-1/2">
               <img 
                 src={event.imageUrl} 
-                alt={event.title} 
+                alt={event.translatedTitle} 
                 className="w-full h-64 object-cover object-top rounded"
               />
-              <p className="text-gray-600 mt-4">{event.description}</p>
+              <p className="text-gray-600 mt-4">{event.translatedDescription}</p>
 
               <div className="mt-6 space-y-4">
                 <div className="flex items-center text-gray-700">
                   <MenuIcon className="mr-3 w-6 h-6" />
-                  <span>{menus.length} {menus.length === 1 ? 'opção de menu disponível' : 'opções de menu disponíveis'}</span>
+                  <span>{menus.length} {menus.length === 1 ? t('common', 'menuOption') : t('common', 'menuOptions')}</span>
                 </div>
                 <div className="flex items-center text-gray-700">
                   <Clock className="mr-3 w-6 h-6" />
-                  <span>Disponível para agendamento</span>
+                  <span>{t('common', 'available')}</span>
                 </div>
               </div>
 
               {selectedMenu ? (
                 <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                  <h3 className="text-lg font-semibold text-gray-800">Menu Selecionado</h3>
+                  <h3 className="text-lg font-semibold text-gray-800">{t('common', 'orderSummary')}</h3>
                   <div className="mt-2">
                     <p className="text-gray-700">{selectedMenu.name}</p>
                     <p className="text-sm text-gray-500 mt-1">{selectedMenu.description}</p>
                     <p className="text-primary font-medium mt-2">
-                      {formatCurrency(Number(selectedMenu.price))} por pessoa
+                      {formatCurrency(Number(selectedMenu.price))} {t('common', 'pricePerPerson')}
                     </p>
                     <div className="mt-4 space-y-2">
-                      <h4 className="font-medium text-gray-700">Itens Selecionados:</h4>
+                      <h4 className="font-medium text-gray-700">{t('common', 'selectedMenu')}:</h4>
                       {Object.entries(menuSelections).map(([category, items]) => (
                         items.length > 0 && (
                           <div key={category} className="ml-4">
@@ -325,7 +329,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
                         setShowItemSelectionModal(true);
                       }}
                     >
-                      Ver/Editar Itens do Menu
+                      {t('common', 'viewMenuOptions')}
                     </Button>
                   </div>
                 </div>
@@ -335,13 +339,18 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
                   <Button 
                     className="mt-6 w-full relative bg-primary text-white hover:bg-opacity-90"
                   >
-                    Ver Opções do Menu
+                    {t('common', 'viewMenuOptions')}
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-4xl max-h-[90vh] p-0 gap-0">
-                  <div className="flex justify-between items-center p-4 border-b border-gray-200 sticky top-0 bg-white z-10">
-                      <h2 className="text-xl font-semibold text-gray-800">Opções de Menu Disponíveis</h2>
-                  </div>
+                  <DialogHeader className="flex justify-between items-center p-4 border-b border-gray-200 sticky top-0 bg-white z-10">
+                    <DialogTitle className="text-xl font-semibold text-gray-800">
+                      {t('common', 'availableMenuOptions')}
+                    </DialogTitle>
+                    <DialogDescription className="sr-only">
+                      {t('common', 'availableMenuOptions')}
+                    </DialogDescription>
+                  </DialogHeader>
                   <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
                       {menuItemsLoading ? (
                         <div className="flex items-center justify-center py-8">
@@ -373,14 +382,14 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
                                     setShowMenuOptionsListModal(false);
                                   }}
                                 >
-                                  Selecionar Itens deste Menu
+                                  {t('common', 'selectMenuItems')}
                             </Button>
                                                 </div>
                                               </div>
                                           ))}
                                         </div>
                       ) : (
-                        <p className="text-center py-8 text-gray-600">Nenhuma opção de menu encontrada.</p>
+                        <p className="text-center py-8 text-gray-600">{t('common', 'noMenuOptions')}</p>
                       )}
                                   </div>
                                 </DialogContent>
@@ -391,7 +400,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
             <div className="md:w-1/2 space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Local
+                  {t('common', 'locationLabel')}
                 </label>
                 <select
                   className="w-full border rounded px-3 py-2 text-gray-700"
@@ -399,7 +408,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
                   onChange={e => setSelectedLocation(e.target.value)}
                   required
                 >
-                  <option value="">Selecione o local</option>
+                  <option value="">{t('common', 'selectLocation')}</option>
                   {locationOptions.map(group => (
                     <optgroup key={group.label} label={group.label}>
                       {group.options.map(option => (
@@ -412,7 +421,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Data do Evento
+                  {t('common', 'eventDate')}
                 </label>
                 <Input
                   type="date"
@@ -425,7 +434,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Horário do Evento
+                  {t('common', 'eventTime')}
                 </label>
                 <Input
                   type="time"
@@ -437,7 +446,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Número de Convidados
+                  {t('common', 'guestCount')}
                 </label>
                 <Input
                   type="number"
@@ -450,48 +459,53 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
 
               {selectedMenu && (
                 <div className="mt-6 bg-gray-50 p-4 rounded-lg">
-                  <h3 className="text-lg font-semibold text-gray-800">Resumo do Pedido</h3>
+                  <h3 className="text-lg font-semibold text-gray-800">{t('common', 'orderSummary')}</h3>
                   <div className="mt-2 space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Menu selecionado:</span>
+                      <span className="text-gray-600">{t('common', 'selectedMenu')}:</span>
                       <span className="font-medium">{selectedMenu.name}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Preço por pessoa:</span>
+                      <span className="text-gray-600">{t('common', 'pricePerPerson')}:</span>
                       <span className="font-medium">{formatCurrency(Number(selectedMenu.price))}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Data do evento:</span>
+                      <span className="text-gray-600">{t('common', 'eventDateLabel')}:</span>
                       <span className="font-medium">{eventDate}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Horário do evento:</span>
+                      <span className="text-gray-600">{t('common', 'eventTimeLabel')}:</span>
                       <span className="font-medium">{eventTime}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Número de convidados:</span>
+                      <span className="text-gray-600">{t('common', 'guestCountLabel')}:</span>
                       <span className="font-medium">{guestCount}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Local:</span>
+                      <span className="text-gray-600">{t('common', 'locationLabel')}:</span>
                       <span className="font-medium">{selectedLocation}</span>
                     </div>
                     <div className="text-xs text-amber-700 bg-amber-100 rounded p-2 mt-2">
-                      Será cobrado um adicional de <b>R$ 260,00</b> para cada garçom, sendo 1 garçom a cada 10 convidados.
+                      {t('common', 'waiterNote')}
                     </div>
                     {(() => {
                       const garcons = Math.ceil(guestCount / 10);
                       const garcomTotal = garcons * 260;
                       return (
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Adicional de garçons:</span>
-                          <span className="font-medium">{formatCurrency(garcomTotal)} <span className="text-xs text-gray-500">({garcons} garçom{garcons > 1 ? 's' : ''})</span></span>
+                          <span className="text-gray-600">{t('common', 'waiterFee')}:</span>
+                          <span className="font-medium">
+                            {formatCurrency(garcomTotal)}
+                            <span className="text-xs text-gray-500">
+                              {t('common', 'waitersCount').replace('{{count}}', String(garcons))}
+                            </span>
+                          </span>
                         </div>
                       );
                     })()}
                     <div className="border-t border-gray-200 mt-2 pt-2">
                       <div className="flex justify-between font-semibold">
-                        <span>Total:</span>
+                        <span>{t('common', 'total')}:</span>
                         <span className="text-primary">
                           {(() => {
                             const garcons = Math.ceil(guestCount / 10);
@@ -510,7 +524,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
                 onClick={handleAddToCart}
                 disabled={!isFormValid()}
               >
-                Adicionar ao Carrinho
+                {t('common', 'addToCart')}
               </Button>
             </div>
           </div>
@@ -526,10 +540,14 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
           }}
         >
           <DialogContent className="max-w-4xl max-h-[90vh] p-0 gap-0 flex flex-col">
-            <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white">
-              <h2 className="text-xl font-semibold text-gray-800">{selectedMenuForItems?.name}</h2>
-              <p className="text-sm text-gray-500">Selecione os itens de cada categoria</p>
-            </div>
+            <DialogHeader className="flex justify-between items-center p-4 border-b border-gray-200 bg-white">
+              <DialogTitle className="text-xl font-semibold text-gray-800">
+                {selectedMenuForItems?.name}
+              </DialogTitle>
+              <DialogDescription className="text-sm text-gray-500">
+                {t('common', 'selectItemsFromCategory')}
+              </DialogDescription>
+            </DialogHeader>
             
             <div className="overflow-y-auto p-6" style={{ maxHeight: "calc(90vh - 160px)" }}>
               {loadingDishes ? (
@@ -543,7 +561,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
                       <div>
                         {category}
                         <span className="text-sm font-normal text-gray-500 ml-2">
-                          (Selecione {categoryLimits[category] || 1})
+                          ({t('common', 'selectItems')} {categoryLimits[category] || 1})
                         </span>
                       </div>
                       <div className={`px-3 py-1 rounded-full text-sm font-medium ${
@@ -556,10 +574,8 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {categoryDishes.map((dish) => {
-                        // Verificar se o usuário já atingiu o limite para esta categoria
                         const isMaxSelected = (menuSelections[category]?.length || 0) >= (categoryLimits[category] || 1);
                         const isSelected = menuSelections[category]?.includes(dish.name) || false;
-                        // Só bloquear novos itens se o item atual não estiver selecionado e já atingiu o limite
                         const isDisabled = isMaxSelected && !isSelected;
                         
                         return (
@@ -587,7 +603,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
                               </div>
                             ) : (
                               <div className="h-24 w-full bg-gray-100 flex items-center justify-center">
-                                <span className="text-gray-400">Sem imagem</span>
+                                <span className="text-gray-400">{t('common', 'noImage')}</span>
                               </div>
                             )}
                             <div className="p-4 flex-grow flex flex-col">
@@ -633,12 +649,11 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
                   setSelectedMenuForItems(null);
                 }}
               >
-                Cancelar
+                {t('common', 'cancel')}
               </Button>
               <Button 
                 className="bg-primary text-white"
                 onClick={() => {
-                  // Verificar se as seleções estão corretas
                   const selectionCounts = Object.entries(menuSelections).map(([category, items]) => ({
                     category,
                     count: items.length,
@@ -651,19 +666,19 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
                     setSelectedMenu(selectedMenuForItems);
                     setShowItemSelectionModal(false);
                     setSelectedMenuForItems(null);
-                    toast.success(`Itens para ${selectedMenuForItems?.name} confirmados.`);
+                    toast.success(`${t('common', 'itemsConfirmed')} ${selectedMenuForItems?.name} ${t('common', 'confirmed')}`);
                   } else {
                     const mensagens = invalids.map(item => 
-                      `${item.category}: selecione exatamente ${item.required} (atualmente: ${item.count})`
+                      `${item.category}: ${t('common', 'selectExactItems')} ${item.required} (${t('common', 'currently')}: ${item.count})`
                     );
                     
                     toast.error(
-                      "Selecione a quantidade exata de itens em cada categoria:\n" + mensagens.join('\n')
+                      `${t('common', 'selectExactItems')}:\n` + mensagens.join('\n')
                     );
                   }
                 }}
               >
-                Confirmar Seleção
+                {t('common', 'confirmSelection')}
               </Button>
             </div>
           </DialogContent>
@@ -676,9 +691,14 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
           onOpenChange={setShowLoginModal}
         >
           <DialogContent className="max-w-md p-0 gap-0 flex flex-col">
-            <div className="p-4 border-b border-gray-200 bg-white">
-              <h2 className="text-xl font-semibold text-gray-800">Login Necessário</h2>
-            </div>
+            <DialogHeader className="p-4 border-b border-gray-200 bg-white">
+              <DialogTitle className="text-xl font-semibold text-gray-800">
+                {t('common', 'loginRequired')}
+              </DialogTitle>
+              <DialogDescription className="sr-only">
+                {t('common', 'loginRequiredMessage')}
+              </DialogDescription>
+            </DialogHeader>
             
             <div className="p-6">
               <div className="flex items-center justify-center mb-4 text-blue-600">
@@ -688,11 +708,11 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
               </div>
               
               <p className="text-center text-gray-800 mb-2 font-medium">
-                Você precisa estar logado para adicionar itens ao carrinho
+                {t('common', 'loginRequiredMessage')}
               </p>
               
               <p className="text-center text-gray-600 text-sm mb-6">
-                Clique no botão abaixo para fazer login e continuar sua compra
+                {t('common', 'loginRequiredSubMessage')}
               </p>
             </div>
             
@@ -701,16 +721,15 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
                 variant="outline" 
                 onClick={() => setShowLoginModal(false)}
               >
-                Cancelar
+                {t('common', 'cancel')}
               </Button>
               <Button 
                 className="bg-primary text-white"
                 onClick={() => {
                   setShowLoginModal(false);
                   onClose();
-                  // Salvar os dados do pedido para recuperar depois
                   const pendingItem = {
-                    id: Date.now(), // Garantir que tenha um id único
+                    id: Date.now(),
                     eventId: event.id,
                     title: event.title,
                     imageUrl: event.imageUrl,
@@ -726,12 +745,11 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
                   
                   localStorage.setItem('pendingCartItem', JSON.stringify(pendingItem));
                   
-                  // Redirecionar para a página de login com retorno para a página atual
                   const returnUrl = encodeURIComponent(window.location.pathname);
                   window.location.href = `/auth?returnTo=${returnUrl}`;
                 }}
               >
-                Ir para Login
+                {t('common', 'goToLogin')}
               </Button>
             </div>
           </DialogContent>

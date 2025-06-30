@@ -1,5 +1,5 @@
-import type { Express, Request, Response, NextFunction } from "express";
-import { createServer, type Server } from "http";
+import express, { Express, Request, Response, NextFunction } from "express";
+import { Server } from "http";
 import { storage, notifyDataChange } from "./storage";
 import { setupAuth, authenticateJWT, AuthenticatedRequest as AuthReq } from "./auth";
 import { z } from "zod";
@@ -14,6 +14,7 @@ import {
   insertRoomSchema
 } from "shared/schema";
 import fs from 'fs/promises';
+import fsSync from 'fs';
 import path from 'path';
 import { format } from 'date-fns';
 import { spawn } from 'child_process';
@@ -26,6 +27,16 @@ import { db } from './db';
 import { settings } from './schema';
 import { eq } from 'drizzle-orm';
 import { fileURLToPath } from 'url';
+import { sendEmail } from './email';
+import bcrypt from 'bcryptjs';
+import { 
+  type Event, type InsertEvent,
+  type Menu, type InsertMenu, type Dish, type InsertDish,
+  users, events, menus, dishes, orders, eventMenus, menuDishes,
+  type Venue, type Room, type InsertVenue, type InsertRoom,
+  type Category, type InsertCategory, categories
+} from "shared/schema";
+import multer from 'multer';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -45,6 +56,39 @@ type AuthenticatedRequest = AuthReq & {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Configuração do Multer para upload de boletos
+  const multerStorage = multer.diskStorage({
+    destination: async (req, file, cb) => {
+      const uploadsDir = path.join(__dirname, 'uploads', 'boletos');
+      try {
+        await fs.mkdir(uploadsDir, { recursive: true });
+        cb(null, uploadsDir);
+      } catch (error) {
+        cb(error as Error, uploadsDir);
+      }
+    },
+    filename: (req, file, cb) => {
+      const orderId = req.params.id;
+      const timestamp = Date.now();
+      const fileName = `boleto_${orderId}_${timestamp}.pdf`;
+      cb(null, fileName);
+    }
+  });
+
+  const upload = multer({
+    storage: multerStorage,
+    limits: {
+      fileSize: 50 * 1024 * 1024, // 50MB
+    },
+    fileFilter: (req, file, cb) => {
+      if (file.mimetype === 'application/pdf') {
+        cb(null, true);
+      } else {
+        cb(new Error('Apenas arquivos PDF são permitidos'));
+      }
+    }
+  });
+
   // Set up authentication routes
   setupAuth(app);
 
@@ -92,15 +136,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/events", async (req: Request, res: Response) => {
     logger.info("[API] GET /api/events - Request received");
     try {
+      const lang = req.query.lang === "en" ? "en" : "pt";
       const events = await cache.getOrSet(
         'events:all',
         () => storage.getAllEvents()
       );
       logger.info(`[API] GET /api/events - Found ${events.length} events`);
-      res.json(events);
+      
+      const result = events.map(event => {
+        const translatedTitle = lang === "en" 
+          ? (event.titleEn || "No title")
+          : (event.title || "Sem título");
+          
+        const translatedDescription = lang === "en"
+          ? (event.descriptionEn || "No description")
+          : (event.description || "Sem descrição");
+          
+        return {
+          ...event,
+          translatedTitle,
+          translatedDescription
+        };
+      });
+      
+      res.json(result);
     } catch (err) {
       const error = err as KnownError;
       logger.error({ error: error.message, stack: error.stack }, "[API] GET /api/events - Error fetching events");
+      res.status(500).json({ message: "Error fetching events" });
+    }
+  });
+
+  app.get("/api/events/popular", async (req: Request, res: Response) => {
+    logger.info("[API] GET /api/events/popular - Request received");
+    try {
+      const lang = req.query.lang === "en" ? "en" : "pt";
+      const events = await storage.getAllEvents();
+      
+      // Filtrar os eventos específicos
+      const filteredEvents = events.filter(event => 
+        event.title.includes('Coffee Break') || 
+        event.title.includes('Almoço') || 
+        event.title.includes('Gastronômico')
+      );
+      
+      logger.info(`[API] GET /api/events/popular - Found ${filteredEvents.length} events`);
+      
+      const result = filteredEvents.slice(0, 3).map(event => {
+        const translatedTitle = lang === "en" 
+          ? (event.titleEn || "No title")
+          : (event.title || "Sem título");
+          
+        const translatedDescription = lang === "en"
+          ? (event.descriptionEn || "No description")
+          : (event.description || "Sem descrição");
+          
+        return {
+          ...event,
+          translatedTitle,
+          translatedDescription
+        };
+      });
+      
+      res.json(result);
+    } catch (err) {
+      const error = err as KnownError;
+      logger.error({ error: error.message, stack: error.stack }, "[API] GET /api/events/popular - Error fetching events");
       res.status(500).json({ message: "Error fetching events" });
     }
   });
@@ -109,18 +210,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const eventId = parseInt(req.params.id);
     logger.info({ eventId }, `[API] GET /api/events/${eventId} - Request received`);
     try {
+      const lang = req.query.lang === "en" ? "en" : "pt";
       const event = await cache.getOrSet(
         `events:${eventId}`,
         () => storage.getEvent(eventId)
       );
-      
       if (!event) {
         logger.warn({ eventId }, `[API] GET /api/events/${eventId} - Event not found`);
         return res.status(404).json({ message: "Event not found" });
       }
-      
       logger.info({ eventId, eventTitle: event.title }, `[API] GET /api/events/${eventId} - Event found`);
-      res.json(event);
+      
+      const translatedTitle = lang === "en" 
+        ? (event.titleEn || "No title")
+        : (event.title || "Sem título");
+        
+      const translatedDescription = lang === "en"
+        ? (event.descriptionEn || "No description")
+        : (event.description || "Sem descrição");
+        
+      const result = {
+        ...event,
+        translatedTitle,
+        translatedDescription
+      };
+      
+      res.json(result);
     } catch (err) {
       const error = err as KnownError;
       logger.error({ eventId, error: error.message, stack: error.stack }, `[API] GET /api/events/${eventId} - Error fetching event`);
@@ -165,8 +280,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/events/:eventId/menus", async (req: Request, res: Response) => {
     try {
       const eventId = parseInt(req.params.eventId);
+      const lang = req.query.lang === "en" ? "en" : "pt";
       const menus = await storage.getMenusByEventId(eventId);
-      res.json(menus);
+      // Ajustar retorno conforme idioma
+      const result = menus.map(menu => ({
+        ...menu,
+        name: lang === "en" ? menu.nameEn : menu.name,
+        description: lang === "en" ? menu.descriptionEn : menu.description
+      }));
+      res.json(result);
     } catch (error) {
       res.status(500).json({ message: "Error fetching menus for event" });
     }
@@ -268,8 +390,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/menus/:menuId/dishes", async (req: Request, res: Response) => {
     try {
       const menuId = parseInt(req.params.menuId);
+      const lang = req.query.lang === "en" ? "en" : "pt";
       const dishes = await storage.getDishesByMenuId(menuId);
-      res.json(dishes);
+      // Ajustar retorno conforme idioma
+      const result = dishes.map(dish => ({
+        ...dish,
+        name: lang === "en" ? dish.nameEn : dish.name,
+        description: lang === "en" ? dish.descriptionEn : dish.description,
+        category: lang === "en" ? dish.categoryEn : dish.category
+      }));
+      res.json(result);
     } catch (error) {
       logger.error("Error fetching dishes for menu:", error);
       res.status(500).json({ message: "Error fetching dishes for menu" });
@@ -333,6 +463,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logger.error("Error associating dish with menu:", error);
       res.status(500).json({ message: "Error associating dish with menu" });
+    }
+  });
+  
+  // Remove dish from menu
+  app.delete("/api/menus/:menuId/dishes/:dishId", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const menuId = parseInt(req.params.menuId);
+      const dishId = parseInt(req.params.dishId);
+      
+      // First check if both menu and dish exist
+      const menu = await storage.getMenu(menuId);
+      if (!menu) {
+        return res.status(404).json({ message: "Menu not found" });
+      }
+      
+      const dish = await storage.getDish(dishId);
+      if (!dish) {
+        return res.status(404).json({ message: "Dish not found" });
+      }
+      
+      // Remove dish from menu using the junction table
+      await storage.dissociateDishFromMenu(dishId, menuId);
+      
+      res.status(200).json({ message: "Dish removed from menu successfully" });
+    } catch (error) {
+      logger.error("Error removing dish from menu:", error);
+      res.status(500).json({ message: "Error removing dish from menu" });
     }
   });
   
@@ -456,6 +613,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("Validation successful:", JSON.stringify(validatedData, null, 2));
         
         const order = await storage.createOrder(validatedData);
+        
+        // NOVO FLUXO: Enviar email para o comercial após criar o pedido
+        try {
+          // Buscar dados do usuário e evento
+          const user = await storage.getUser(order.userId);
+          const event = await storage.getEvent(order.eventId);
+          
+          if (user && event) {
+            // Buscar todos os usuários com papel 'Comercial'
+            const commercialUsers = await storage.getUsersByRole('Comercial');
+            const commercialEmails = commercialUsers.map(u => u.email).filter(Boolean);
+            const emailsToSend = commercialEmails.length > 0 ? commercialEmails : [process.env.COMMERCIAL_TEAM_EMAIL || "suporte@rojogastronomia.com"];
+            
+            // URL do painel administrativo
+            const adminPanelUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/admin/orders`;
+            
+            // Enviar email para cada comercial
+            for (const email of emailsToSend) {
+              await sendEmail({
+                to: email,
+                subject: `Novo Pedido #${order.id} - Gerar Boleto`,
+                template: "new-order-notification-commercial",
+                data: {
+                  orderId: order.id,
+                  eventName: event.name,
+                  eventDate: new Date(order.date).toLocaleDateString('pt-BR'),
+                  eventTime: new Date(order.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                  location: order.location || 'Local a definir',
+                  guestCount: order.guestCount,
+                  menuSelection: order.menuSelection || 'Menu a definir',
+                  totalAmount: order.totalAmount.toFixed(2),
+                  waiterFee: order.waiterFee.toFixed(2),
+                  orderDate: new Date(order.createdAt).toLocaleDateString('pt-BR'),
+                  customerName: user.name,
+                  customerEmail: user.email,
+                  customerPhone: user.phone || 'Não informado',
+                  adminPanelUrl: adminPanelUrl
+                }
+              });
+            }
+            
+            console.log(`[NEW FLOW] Email enviado para ${emailsToSend.length} comercial(is) sobre o pedido #${order.id}`);
+          }
+        } catch (emailError) {
+          console.error("[NEW FLOW] Erro ao enviar email para comercial:", emailError);
+          // Não falhar o pedido se o email falhar
+        }
+        
       res.status(201).json(order);
       } catch (validationError: any) {
         console.error("Validation error:", validationError);
@@ -483,6 +688,230 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedOrder);
     } catch (error) {
       res.status(400).json({ message: "Invalid status data" });
+    }
+  });
+
+  // Upload boleto endpoint
+  app.post("/api/orders/:id/upload-boleto", isAdmin, upload.single('boleto'), async (req: Request, res: Response) => {
+    try {
+      const orderId = parseInt(req.params.id);
+      logger.info({ orderId }, "[API] POST /api/orders/:id/upload-boleto - Request received");
+      
+      // Verificar se o pedido existe
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        logger.warn({ orderId }, "[API] POST /api/orders/:id/upload-boleto - Order not found");
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      // Verificar se há arquivo no request
+      if (!req.file) {
+        logger.warn({ orderId }, "[API] POST /api/orders/:id/upload-boleto - No file uploaded");
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const uploadedFile = req.file;
+      logger.info({ 
+        orderId, 
+        fileName: uploadedFile.originalname, 
+        fileSize: uploadedFile.size, 
+        fileType: uploadedFile.mimetype 
+      }, "[API] POST /api/orders/:id/upload-boleto - File received");
+
+      // Atualizar o pedido com o caminho do boleto
+      const updatedOrder = await storage.updateOrderBoleto(orderId, uploadedFile.filename);
+      
+      if (!updatedOrder) {
+        logger.error({ orderId }, "[API] POST /api/orders/:id/upload-boleto - Failed to update order");
+        return res.status(500).json({ message: "Failed to update order" });
+      }
+
+      // NOVO FLUXO: Enviar email para o cliente com o boleto
+      try {
+        const user = await storage.getUser(order.userId);
+        const event = await storage.getEvent(order.eventId);
+        
+        if (user && event) {
+          // URL para download do boleto
+          const boletoUrl = `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/orders/${orderId}/boleto`;
+          const systemUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/orders`;
+          
+          // Enviar email para o cliente
+          await sendEmail({
+            to: user.email,
+            subject: `Boleto Disponível - Pedido #${orderId}`,
+            template: "boleto-notification",
+            data: {
+              userName: user.name,
+              orderId: order.id,
+              eventName: event.title,
+              eventDate: new Date(order.date).toLocaleDateString('pt-BR'),
+              totalAmount: order.totalAmount.toFixed(2),
+              boletoUrl: boletoUrl,
+              systemUrl: systemUrl
+            }
+          });
+          
+          logger.info({ orderId, customerEmail: user.email }, "[NEW FLOW] Email com boleto enviado para o cliente");
+
+          // Enviar confirmação para o comercial
+          const commercialUsers = await storage.getUsersByRole('Comercial');
+          const commercialEmails = commercialUsers.map(u => u.email).filter(Boolean);
+          const emailsToSend = commercialEmails.length > 0 ? commercialEmails : [process.env.COMMERCIAL_TEAM_EMAIL || "suporte@rojogastronomia.com"];
+          
+          for (const email of emailsToSend) {
+            await sendEmail({
+              to: email,
+              subject: `Boleto Enviado - Pedido #${orderId}`,
+              template: "boleto-delivery-confirmation",
+              data: {
+                orderId: order.id,
+                eventName: event.title,
+                eventDate: new Date(order.date).toLocaleDateString('pt-BR'),
+                totalAmount: order.totalAmount.toFixed(2),
+                boletoSentDate: new Date().toLocaleDateString('pt-BR'),
+                customerName: user.name,
+                customerEmail: user.email
+              }
+            });
+          }
+          
+          logger.info({ orderId }, "[NEW FLOW] Confirmação enviada para comercial");
+        }
+      } catch (emailError) {
+        logger.error({ orderId, error: emailError.message }, "[NEW FLOW] Erro ao enviar emails");
+
+        // Enviar email de erro para o comercial
+        try {
+          const user = await storage.getUser(order.userId);
+          const event = await storage.getEvent(order.eventId);
+          const commercialUsers = await storage.getUsersByRole('Comercial');
+          const commercialEmails = commercialUsers.map(u => u.email).filter(Boolean);
+          const emailsToSend = commercialEmails.length > 0 ? commercialEmails : [process.env.COMMERCIAL_TEAM_EMAIL || "suporte@rojogastronomia.com"];
+          
+          for (const email of emailsToSend) {
+            await sendEmail({
+              to: email,
+              subject: `Erro no Envio do Boleto - Pedido #${orderId}`,
+              template: "boleto-delivery-error",
+              data: {
+                orderId: order.id,
+                eventName: event?.title || 'Evento não encontrado',
+                eventDate: new Date(order.date).toLocaleDateString('pt-BR'),
+                totalAmount: order.totalAmount.toFixed(2),
+                attemptDate: new Date().toLocaleDateString('pt-BR'),
+                customerName: user?.name || 'Cliente não encontrado',
+                customerEmail: user?.email || 'Email não encontrado',
+                customerPhone: user?.phone || 'Telefone não informado',
+                customerWhatsApp: user?.phone || 'WhatsApp não informado',
+                errorMessage: emailError.message,
+                errorCode: emailError.code || 'UNKNOWN',
+                errorTimestamp: new Date().toISOString(),
+                adminPanelUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/admin/orders`
+              }
+            });
+          }
+        } catch (errorEmailError) {
+          logger.error({ orderId, error: errorEmailError.message }, "[NEW FLOW] Erro ao enviar email de erro");
+        }
+      }
+
+      logger.info({ orderId, boletoPath: uploadedFile.filename }, "[API] POST /api/orders/:id/upload-boleto - Success");
+      res.json(updatedOrder);
+    } catch (error) {
+      logger.error({ error: error.message, stack: error.stack }, "[API] POST /api/orders/:id/upload-boleto - Error");
+      res.status(500).json({ message: "Error uploading boleto" });
+    }
+  });
+
+  // Test upload endpoint
+  app.post("/api/test-upload", upload.single('boleto'), async (req: Request, res: Response) => {
+    try {
+      logger.info("[API] POST /api/test-upload - Request received");
+      logger.info("[API] POST /api/test-upload - Headers:", req.headers);
+      logger.info("[API] POST /api/test-upload - Content-Type:", req.headers['content-type']);
+      logger.info("[API] POST /api/test-upload - Content-Length:", req.headers['content-length']);
+      
+      // Verificar se há arquivo no request
+      if (!req.file) {
+        logger.warn("[API] POST /api/test-upload - No file uploaded");
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const uploadedFile = req.file;
+      logger.info({ 
+        fileName: uploadedFile.originalname, 
+        fileSize: uploadedFile.size, 
+        fileType: uploadedFile.mimetype 
+      }, "[API] POST /api/test-upload - File received");
+
+      res.json({ 
+        message: "File uploaded successfully",
+        fileName: uploadedFile.originalname,
+        fileSize: uploadedFile.size,
+        fileType: uploadedFile.mimetype
+      });
+    } catch (error) {
+      logger.error({ error: error.message, stack: error.stack }, "[API] POST /api/test-upload - Error");
+      res.status(500).json({ message: "Error uploading file" });
+    }
+  });
+
+  // Test endpoint without fileUpload middleware
+  app.post("/api/test-raw", async (req: Request, res: Response) => {
+    try {
+      logger.info("[API] POST /api/test-raw - Request received");
+      logger.info("[API] POST /api/test-raw - Headers:", req.headers);
+      logger.info("[API] POST /api/test-raw - Content-Type:", req.headers['content-type']);
+      logger.info("[API] POST /api/test-raw - Body type:", typeof req.body);
+      logger.info("[API] POST /api/test-raw - Body keys:", Object.keys(req.body || {}));
+      
+      res.json({ 
+        message: "Raw request received",
+        contentType: req.headers['content-type'],
+        bodyType: typeof req.body,
+        bodyKeys: Object.keys(req.body || {})
+      });
+    } catch (error) {
+      logger.error({ error: error.message, stack: error.stack }, "[API] POST /api/test-raw - Error");
+      res.status(500).json({ message: "Error processing request" });
+    }
+  });
+
+  // Test endpoint with multer (alternative to fileUpload)
+  app.post("/api/test-multer", async (req: Request, res: Response) => {
+    try {
+      logger.info("[API] POST /api/test-multer - Request received");
+      logger.info("[API] POST /api/test-multer - Headers:", req.headers);
+      logger.info("[API] POST /api/test-multer - Content-Type:", req.headers['content-type']);
+      
+      // Verificar se há arquivo no request
+      if (!req.files) {
+        logger.warn("[API] POST /api/test-multer - req.files is undefined");
+        return res.status(400).json({ message: "No files object" });
+      }
+      
+      if (!req.files.file) {
+        logger.warn("[API] POST /api/test-multer - No file uploaded, files:", Object.keys(req.files));
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const uploadedFile = req.files.file;
+      logger.info({ 
+        fileName: uploadedFile.name, 
+        fileSize: uploadedFile.size, 
+        fileType: uploadedFile.mimetype 
+      }, "[API] POST /api/test-multer - File received");
+
+      res.json({ 
+        message: "File uploaded successfully with multer",
+        fileName: uploadedFile.name,
+        fileSize: uploadedFile.size,
+        fileType: uploadedFile.mimetype
+      });
+    } catch (error) {
+      logger.error({ error: error.message, stack: error.stack }, "[API] POST /api/test-multer - Error");
+      res.status(500).json({ message: "Error uploading file" });
     }
   });
 
@@ -720,12 +1149,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     logger.info({ adminUserId, targetUserId, body: req.body }, `[API] PUT /api/users/${targetUserId} - Request received`);
 
     try {
-      if (adminUserId === targetUserId && req.body.role && req.body.role !== req.user!.role) {
-        logger.warn({ adminUserId, targetUserId }, `[API] PUT /api/users/${targetUserId} - Attempt to change own role denied`);
-        return res.status(400).json({ message: "Cannot change your own role" });
+      // Se o usuário está editando a si mesmo, remove o campo role para evitar problemas
+      let { password, role, ...userData } = req.body;
+      
+      // Se não for o próprio usuário, permite alterar o role
+      if (adminUserId !== targetUserId) {
+        userData.role = role;
+      } else {
+        logger.info({ adminUserId, targetUserId }, `[API] PUT /api/users/${targetUserId} - Admin editing own profile, role field removed`);
       }
 
-      const { password, ...userData } = req.body;
       const updateData: Partial<InsertUser> = password ? { ...userData, password } : userData;
       
       const updatedUser = await storage.updateUser(targetUserId, updateData);
@@ -790,12 +1223,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Adicionar permissão
+  app.post("/api/admin/access/permissions", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const { name, description } = req.body;
+      if (!name || !description) {
+        return res.status(400).json({ message: "Nome e descrição são obrigatórios" });
+      }
+      const newPermission = await storage.createPermission({ name, description });
+      res.status(201).json(newPermission);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao criar permissão" });
+    }
+  });
+
+  // Remover permissão
+  app.delete("/api/admin/access/permissions/:id", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      if (!id) return res.status(400).json({ message: "ID inválido" });
+      await storage.deletePermission(id);
+      res.json({ message: "Permissão removida com sucesso" });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao remover permissão" });
+    }
+  });
+
   app.get("/api/admin/access/roles", isAdmin, async (req: Request, res: Response) => {
     try {
       const roles = await storage.getRoles();
       res.json(roles);
     } catch (error) {
       res.status(500).json({ message: "Erro ao buscar roles" });
+    }
+  });
+
+  // Criar novo role/cargo
+  app.post("/api/admin/access/roles", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const { name, permissions } = req.body;
+      if (!name || !Array.isArray(permissions)) {
+        return res.status(400).json({ message: "Nome e permissões são obrigatórios" });
+      }
+      const newRole = await storage.createRole({ name, permissions });
+      res.status(201).json(newRole);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao criar role" });
+    }
+  });
+
+  // Remover role/cargo
+  app.delete("/api/admin/access/roles/:id", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      if (!id) return res.status(400).json({ message: "ID inválido" });
+      await storage.deleteRole(id);
+      res.json({ message: "Role removido com sucesso" });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao remover role" });
+    }
+  });
+
+  // Editar role/cargo
+  app.put("/api/admin/access/roles/:id", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const { name, permissions } = req.body;
+      if (!id || !name || !Array.isArray(permissions)) {
+        return res.status(400).json({ message: "ID, nome e permissões são obrigatórios" });
+      }
+      const updatedRole = await storage.updateRole({ id, name, permissions });
+      res.json(updatedRole);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao editar role" });
     }
   });
 
@@ -1125,92 +1625,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         message: "Error fetching stats", 
         error: error instanceof Error ? error.message : String(error) 
-      });
-    }
-  });
-
-  // Rota para estatísticas básicas - agora com verificações explícitas
-  app.get("/api/basic-stats", isAdmin, async (req: Request, res: Response) => {
-    const adminId = req.user?.id;
-    logger.info({ 
-      userId: adminId, 
-      query: req.query, 
-      timestamp: new Date().toISOString() 
-    }, "[API] GET /api/basic-stats - Request received");
-
-    const startTime = Date.now();
-
-    try {
-      // Tentar obter estatísticas básicas
-      logger.info("[API] GET /api/basic-stats - Recuperando estatísticas");
-      let basicStats = await getBasicStats();
-      
-      // VERIFICAÇÃO CRÍTICA: Se não houver pedidos recentes, carregar pedidos garantidos
-      if (!basicStats.recentOrders || basicStats.recentOrders.length === 0) {
-        logger.warn("[API] GET /api/basic-stats - Nenhum pedido encontrado, buscando pedidos garantidos");
-        
-        // Usar pedidos garantidos como fallback
-        const confirmedOrders = await storage.getConfirmedOrders();
-        logger.info(`[API] GET /api/basic-stats - Encontrados ${confirmedOrders.length} pedidos garantidos`);
-        
-        // Atualizar estatísticas com pedidos garantidos
-        basicStats.recentOrders = confirmedOrders;
-        
-        // Recalcular contagens de status
-        const pendingCount = confirmedOrders.filter(o => o.status === 'pending').length;
-        const confirmedCount = confirmedOrders.filter(o => o.status === 'confirmed').length;
-        const completedCount = confirmedOrders.filter(o => o.status === 'completed').length;
-        
-        basicStats.ordersByStatus = {
-          pending: pendingCount,
-          confirmed: confirmedCount,
-          completed: completedCount,
-          total: confirmedOrders.length
-        };
-        
-        logger.info("[API] GET /api/basic-stats - Estatísticas atualizadas com pedidos garantidos");
-      }
-      
-      // Verificar detalhamento dos pedidos para debug
-      logger.info(`[API] GET /api/basic-stats - Eventos recentes: ${basicStats.recentEvents?.length || 0}`);
-      logger.info(`[API] GET /api/basic-stats - Pedidos recentes: ${basicStats.recentOrders?.length || 0}`);
-      
-      // Log detalhado do primeiro evento e pedido para verificação
-      if (basicStats.recentEvents && basicStats.recentEvents.length > 0) {
-        const firstEvent = basicStats.recentEvents[0];
-        logger.info(`[API] Exemplo primeiro evento: ID=${firstEvent.id}, Título=${firstEvent.title}`);
-      }
-      
-      if (basicStats.recentOrders && basicStats.recentOrders.length > 0) {
-        const firstOrder = basicStats.recentOrders[0];
-        logger.info(`[API] Exemplo primeiro pedido: ID=${firstOrder.id}, Status=${firstOrder.status}, Valor=${firstOrder.totalAmount}`);
-      }
-      
-      // Log de dados para os gráficos
-      logger.info(`[API] Dados de gráficos - EventsPerMonth: ${JSON.stringify(basicStats.eventsPerMonth?.slice(0, 3))}...`);
-      logger.info(`[API] Dados de gráficos - EventCategories: ${JSON.stringify(basicStats.eventCategories)}`);
-      
-      // Calcular tempo de processamento
-      const processingTime = Date.now() - startTime;
-      logger.info(`[API] GET /api/basic-stats - Processamento concluído em ${processingTime}ms`);
-      
-      // Garantir timestamp atualizado
-      basicStats.timestamp = new Date().toISOString();
-      
-      // Enviar resposta
-      res.json(basicStats);
-    } catch (err) {
-      const error = err as KnownError;
-      logger.error({ 
-        userId: adminId, 
-        error: error.message, 
-        stack: error.stack 
-      }, "[API] GET /api/basic-stats - Error retrieving stats");
-      
-      res.status(500).json({ 
-        message: "Error retrieving stats",
-        timestamp: new Date().toISOString(),
-        error: error.message
       });
     }
   });
@@ -1674,7 +2088,263 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  const server = createServer(app);
-  logger.info('Routes registered and server created');
-  return server;
+  // Submit order endpoint
+  app.post("/api/orders/:id/submit", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+
+    try {
+      const orderId = parseInt(req.params.id);
+      const order = await storage.getOrder(orderId);
+
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      // Check if user owns the order
+      if (order.userId !== req.user.id) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      // Check if order is in pending status
+      if (order.status !== "pending") {
+        return res.status(400).json({ 
+          message: "Invalid order status",
+          details: "Only pending orders can be submitted"
+        });
+      }
+
+      // Get user and event details
+      const user = await storage.getUser(order.userId);
+      const event = await storage.getEvent(order.eventId);
+
+      if (!user || !event) {
+        return res.status(404).json({ message: "User or event not found" });
+      }
+
+      // Send email to customer
+      await sendEmail({
+        to: user.email,
+        subject: "Seu pedido foi recebido!",
+        template: "order-confirmation",
+        data: {
+          userName: user.name,
+          orderId: order.id,
+          eventName: event.name,
+          eventDate: new Date(order.eventDate).toLocaleDateString('pt-BR'),
+          eventTime: new Date(order.eventDate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          location: order.location,
+          totalAmount: order.totalAmount,
+        }
+      });
+
+      // Buscar todos os usuários com papel 'Comercial'
+      const commercialUsers = await storage.getUsersByRole('Comercial');
+      const commercialEmails = commercialUsers.map(u => u.email).filter(Boolean);
+      const emailsToSend = commercialEmails.length > 0 ? commercialEmails : [process.env.COMMERCIAL_TEAM_EMAIL || "suporte@rojogastronomia.com"];
+    } catch (error) {
+      console.error("Error submitting order:", error);
+      res.status(500).json({ message: "Error submitting order" });
+    }
+  });
+
+  // Upload boleto endpoint (admin only)
+
+  // Test endpoint for dashboard
+  app.get("/api/test-dashboard", async (req: Request, res: Response) => {
+    try {
+      console.log('[API] Test endpoint chamado');
+      res.json({ 
+        message: "Servidor funcionando",
+        timestamp: new Date().toISOString(),
+        status: "ok"
+      });
+    } catch (error) {
+      console.error('[API] Erro no test endpoint:', error);
+      res.status(500).json({ 
+        message: "Erro no servidor",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Test stats endpoint (sem autenticação para debug)
+  app.get("/api/test-stats", async (req: Request, res: Response) => {
+    try {
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+      console.log('[API] Test stats endpoint chamado');
+      
+      // Usar SQL direto em vez do Drizzle para debug
+      const pool = new (await import('pg')).Pool({
+        connectionString: 'postgresql://postgres:03032012FeKa%3C3@db.kaozvieefihavxsowfak.supabase.co:5432/postgres',
+        ssl: { rejectUnauthorized: false }
+      });
+      
+      // Buscar dados básicos
+      const ordersResult = await pool.query('SELECT COUNT(*) as count FROM orders');
+      const eventsResult = await pool.query('SELECT COUNT(*) as count FROM events');
+      const usersResult = await pool.query('SELECT COUNT(*) as count FROM users');
+      
+      const orders = await pool.query('SELECT * FROM orders ORDER BY date DESC LIMIT 10');
+      const events = await pool.query('SELECT * FROM events ORDER BY created_at DESC LIMIT 10');
+      
+      // Calcular receitas
+      const completedRevenueResult = await pool.query("SELECT SUM(total_amount) as sum FROM orders WHERE status = 'completed'");
+      const potentialRevenueResult = await pool.query("SELECT SUM(total_amount) as sum FROM orders WHERE status IN ('confirmed', 'pending')");
+      
+      const stats = {
+        totalEvents: parseInt(eventsResult.rows[0].count),
+        totalUsers: parseInt(usersResult.rows[0].count),
+        totalOrders: parseInt(ordersResult.rows[0].count),
+        totalRevenue: parseFloat(completedRevenueResult.rows[0].sum || 0),
+        confirmedOrdersRevenue: parseFloat(potentialRevenueResult.rows[0].sum || 0),
+        recentEvents: events.rows,
+        recentOrders: orders.rows,
+        ordersByStatus: {
+          pending: orders.rows.filter(o => o.status === 'pending').length,
+          confirmed: orders.rows.filter(o => o.status === 'confirmed').length,
+          completed: orders.rows.filter(o => o.status === 'completed').length,
+          total: orders.rows.length
+        },
+        eventsPerMonth: [
+          { month: "Jan", count: 0 },
+          { month: "Fev", count: 0 },
+          { month: "Mar", count: 0 },
+          { month: "Abr", count: 0 },
+          { month: "Mai", count: 0 },
+          { month: "Jun", count: 0 },
+          { month: "Jul", count: 0 },
+          { month: "Ago", count: 0 },
+          { month: "Set", count: 0 },
+          { month: "Out", count: 0 },
+          { month: "Nov", count: 0 },
+          { month: "Dez", count: 0 }
+        ],
+        eventCategories: [
+          { name: "Pendentes", value: orders.rows.filter(o => o.status === 'pending').length },
+          { name: "Confirmados", value: orders.rows.filter(o => o.status === 'confirmed').length },
+          { name: "Concluídos", value: orders.rows.filter(o => o.status === 'completed').length }
+        ],
+        dashboardTotals: {
+          ordersThisMonth: orders.rows.length,
+          confirmedRevenue: parseFloat(potentialRevenueResult.rows[0].sum || 0)
+        },
+        timestamp: new Date().toISOString()
+      };
+      
+      await pool.end();
+      
+      res.json({
+        message: "Estatísticas obtidas com sucesso",
+        timestamp: new Date().toISOString(),
+        stats: stats
+      });
+    } catch (error) {
+      console.error('[API] Erro no test stats endpoint:', error);
+      res.status(500).json({ 
+        message: "Erro ao buscar estatísticas",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Basic stats endpoint
+
+  // Download boleto endpoint
+  app.get("/api/orders/:id/boleto", async (req: Request, res: Response) => {
+    try {
+      const orderId = parseInt(req.params.id);
+      logger.info({ orderId }, "[API] GET /api/orders/:id/boleto - Request received");
+      console.log(`[DEBUG] Download boleto request for order ID: ${orderId}`);
+      
+      // Verificar se o pedido existe
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        logger.warn({ orderId }, "[API] GET /api/orders/:id/boleto - Order not found");
+        console.log(`[DEBUG] Order ${orderId} not found`);
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      console.log(`[DEBUG] Order found:`, order);
+
+      // Verificar se o boleto existe
+      if (!order.boletoUrl) {
+        logger.warn({ orderId }, "[API] GET /api/orders/:id/boleto - Boleto not found");
+        console.log(`[DEBUG] Boleto URL not found for order ${orderId}`);
+        return res.status(404).json({ message: "Boleto not found" });
+      }
+
+      console.log(`[DEBUG] Boleto URL: ${order.boletoUrl}`);
+
+      // Verificar se o usuário está autenticado e é o dono do pedido ou admin
+      if (!req.isAuthenticated()) {
+        console.log(`[DEBUG] User not authenticated`);
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      // Se não for admin, verificar se é o dono do pedido
+      if (order.userId !== req.user.id && req.user.role !== 'admin') {
+        console.log(`[DEBUG] User not authorized. Order userId: ${order.userId}, req.user.id: ${req.user.id}, req.user.role: ${req.user.role}`);
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      // Caminho do arquivo
+      const filePath = path.join(__dirname, 'uploads', 'boletos', order.boletoUrl);
+      console.log(`[DEBUG] File path: ${filePath}`);
+      
+      // Verificar se o arquivo existe
+      try {
+        await fs.access(filePath);
+        console.log(`[DEBUG] File exists at: ${filePath}`);
+      } catch (error) {
+        logger.error({ orderId, filePath }, "[API] GET /api/orders/:id/boleto - File not found");
+        console.log(`[DEBUG] File not found at: ${filePath}`);
+        console.log(`[DEBUG] Error:`, error);
+        return res.status(404).json({ message: "Boleto file not found" });
+      }
+
+      // Configurar headers para download
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="boleto_pedido_${orderId}.pdf"`);
+      
+      console.log(`[DEBUG] Sending file: ${filePath}`);
+      
+      // Enviar o arquivo
+      res.sendFile(filePath);
+      
+      logger.info({ orderId }, "[API] GET /api/orders/:id/boleto - Success");
+      console.log(`[DEBUG] File sent successfully`);
+    } catch (error) {
+      logger.error({ error: error.message, stack: error.stack }, "[API] GET /api/orders/:id/boleto - Error");
+      console.log(`[DEBUG] Error in download endpoint:`, error);
+      res.status(500).json({ message: "Error downloading boleto" });
+    }
+  });
+
+  // Upload boleto endpoint
+
+  // Super simple test endpoint
+  app.post("/api/simple-test", async (req: Request, res: Response) => {
+    try {
+      console.log("=== SIMPLE TEST ENDPOINT ===");
+      console.log("Headers:", req.headers);
+      console.log("Files exists:", !!req.files);
+      console.log("Files:", req.files);
+      console.log("Body:", req.body);
+      console.log("=== END SIMPLE TEST ===");
+      
+      res.json({ 
+        message: "Simple test completed",
+        hasFiles: !!req.files,
+        filesKeys: req.files ? Object.keys(req.files) : [],
+        bodyKeys: Object.keys(req.body || {})
+      });
+    } catch (error) {
+      console.error("Simple test error:", error);
+      res.status(500).json({ message: "Error in simple test" });
+    }
+  });
+
+  // Test endpoint without fileUpload middleware
 }

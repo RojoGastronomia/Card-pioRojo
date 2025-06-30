@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { events, menuItems, users } from "./schema";
+import { events, menus, users } from "../shared/schema";
 import { hash } from "bcryptjs";
 
 async function seed() {
@@ -18,6 +18,8 @@ async function seed() {
         email: adminEmail,
         password: hashedPassword,
         role: "admin",
+        username: "admin",
+        name: "Administrador"
       });
       console.log("Admin user created successfully");
     }
@@ -48,22 +50,24 @@ async function seed() {
     }).returning();
 
     // Menu items for Event 1
-    await db.insert(menuItems).values([
+    await db.insert(menus).values([
       {
         name: "Menu Executivo",
+        nameEn: "Executive Menu",
         description: "Menu completo com entrada, prato principal e sobremesa. Opções de carne, frango e vegetariano.",
+        descriptionEn: "Full menu with starter, main course and dessert. Meat, chicken and vegetarian options.",
         price: 80,
-        category: "executive",
+        image_url: "https://via.placeholder.com/300x200?text=Menu+Executivo",
         eventId: event1.id,
-        imageUrl: "https://via.placeholder.com/300x200?text=Menu+Executivo",
       },
       {
         name: "Menu Premium",
+        nameEn: "Premium Menu",
         description: "Menu premium com entrada, prato principal gourmet, sobremesa e bebidas inclusas. Diversas opções disponíveis.",
+        descriptionEn: "Premium menu with starter, gourmet main course, dessert and drinks included. Several options available.",
         price: 120,
-        category: "premium",
+        image_url: "https://via.placeholder.com/300x200?text=Menu+Premium",
         eventId: event1.id,
-        imageUrl: "https://via.placeholder.com/300x200?text=Menu+Premium",
       }
     ]);
 
@@ -78,30 +82,33 @@ async function seed() {
     }).returning();
 
     // Menu items for Event 2
-    await db.insert(menuItems).values([
+    await db.insert(menus).values([
       {
         name: "Menu Clássico",
+        nameEn: "Classic Menu",
         description: "Menu tradicional com entrada, prato principal e sobremesa. Opções de carne, frango e peixe.",
+        descriptionEn: "Traditional menu with starter, main course and dessert. Meat, chicken and fish options.",
         price: 150,
-        category: "classic",
+        image_url: "https://via.placeholder.com/300x200?text=Menu+Classico",
         eventId: event2.id,
-        imageUrl: "https://via.placeholder.com/300x200?text=Menu+Classico",
       },
       {
         name: "Menu Gourmet",
+        nameEn: "Gourmet Menu",
         description: "Menu gourmet com 5 tempos: entrada fria, entrada quente, prato principal, pre-sobremesa e sobremesa.",
+        descriptionEn: "Gourmet menu with 5 courses: cold starter, hot starter, main course, pre-dessert and dessert.",
         price: 250,
-        category: "gourmet",
+        image_url: "https://via.placeholder.com/300x200?text=Menu+Gourmet",
         eventId: event2.id,
-        imageUrl: "https://via.placeholder.com/300x200?text=Menu+Gourmet",
       },
       {
         name: "Menu Internacional",
+        nameEn: "International Menu",
         description: "Menu exclusivo com pratos da gastronomia internacional, produtos premium e open bar completo.",
+        descriptionEn: "Exclusive menu with international cuisine, premium products and full open bar.",
         price: 350,
-        category: "international",
+        image_url: "https://via.placeholder.com/300x200?text=Menu+Internacional",
         eventId: event2.id,
-        imageUrl: "https://via.placeholder.com/300x200?text=Menu+Internacional",
       }
     ]);
 
@@ -116,22 +123,24 @@ async function seed() {
     }).returning();
 
     // Menu items for Event 3
-    await db.insert(menuItems).values([
+    await db.insert(menus).values([
       {
         name: "Menu Festa",
+        nameEn: "Party Menu",
         description: "Buffet completo com finger foods, mini-porções, mesa de doces e bolo personalizado.",
+        descriptionEn: "Full buffet with finger foods, mini portions, candy table and personalized cake.",
         price: 100,
-        category: "party",
+        image_url: "https://via.placeholder.com/300x200?text=Menu+Festa",
         eventId: event3.id,
-        imageUrl: "https://via.placeholder.com/300x200?text=Menu+Festa",
       },
       {
         name: "Menu Premium Celebration",
+        nameEn: "Premium Celebration Menu",
         description: "Menu premium com estações gastronômicas, carnes nobres, doces finos e bebidas premium.",
+        descriptionEn: "Premium menu with food stations, fine meats, fine sweets and premium drinks.",
         price: 180,
-        category: "premium",
+        image_url: "https://via.placeholder.com/300x200?text=Menu+Premium+Celebration",
         eventId: event3.id,
-        imageUrl: "https://via.placeholder.com/300x200?text=Menu+Premium+Celebration",
       }
     ]);
 

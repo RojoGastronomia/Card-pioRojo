@@ -16,6 +16,8 @@ import {
 import { Search, ShoppingCart, User, Menu, ChevronDown, LogOut, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
+import { useLanguage } from "@/context/language-context";
+import LanguageSwitcher from "@/components/ui/language-switcher";
 
 export function Navbar() {
   const [location] = useLocation();
@@ -23,6 +25,10 @@ export function Navbar() {
   const { cartItems, openCart } = useCart();
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const { toast } = useToast();
+  const { t, language } = useLanguage();
+
+  // DEBUG: Mostrar idioma e tradução de users
+  console.log('LANG:', language, 'USERS:', t('admin', 'users'));
 
   // Determine if the user is admin
   const isAdmin = user?.role === "admin";
@@ -35,22 +41,22 @@ export function Navbar() {
     return location === path ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300";
   };
 
-  // Admin navigation links
+  // Admin navigation links (dentro do componente, para recalcular ao trocar idioma)
   const adminLinks = [
-    { name: "Dashboard", path: "/admin/dashboard" },
-    { name: "Usuários", path: "/admin/users" },
-    { name: "Cadastrar Eventos", path: "/admin/events" },
-    { name: "Cardápios", path: "/admin/menus-crud" },
-    { name: "Pratos", path: "/admin/dishes" },
-    { name: "Pedidos", path: "/admin/orders" },
-    { name: "Master", path: "/admin/master" },
+    { name: t('admin', 'dashboard'), path: "/admin/dashboard" },
+    { name: t('admin', 'users'), path: "/admin/users" },
+    { name: t('admin', 'events'), path: "/admin/events" },
+    { name: t('admin', 'menus'), path: "/admin/menus-crud" },
+    { name: t('admin', 'dishes'), path: "/admin/dishes" },
+    { name: t('admin', 'orders'), path: "/admin/orders" },
+    { name: t('admin', 'master'), path: "/admin/master" },
   ];
 
-  // Client navigation links
+  // Client navigation links (dentro do componente)
   const clientLinks = [
-    { name: "Início", path: "/" },
-    { name: "Eventos", path: "/events" },
-    { name: "Meus Pedidos", path: "/orders" },
+    { name: t('navbar', 'home'), path: "/" },
+    { name: t('navbar', 'events'), path: "/events" },
+    { name: t('navbar', 'myOrders'), path: "/orders" },
   ];
 
   const links = isAdminPage ? adminLinks : clientLinks;
@@ -98,7 +104,10 @@ export function Navbar() {
 
             {/* Right Side Controls */}
             <div className="flex items-center gap-4">
-              {/* Conditional rendering based on auth state and user role */}
+              {/* Language Switcher */}
+              <LanguageSwitcher />
+              
+              {/* Cart Button */}
               {!isAdminPage && (
                 <button 
                   className="relative w-10 h-10 flex items-center justify-center text-gray-600 hover:text-gray-900"
@@ -123,13 +132,13 @@ export function Navbar() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
+                    <DropdownMenuLabel>{t('navbar', 'myAccount')}</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     {role !== "client" && role !== "Cliente" && (
                       <>
                         <Link href="/">
                           <DropdownMenuItem className="cursor-pointer">
-                            Página Inicial
+                            {t('navbar', 'homePage')}
                           </DropdownMenuItem>
                         </Link>
                       </>
@@ -138,7 +147,7 @@ export function Navbar() {
                       <>
                         <Link href="/admin/dashboard">
                           <DropdownMenuItem className="cursor-pointer">
-                            Painel Administrativo
+                            {t('navbar', 'adminPanel')}
                           </DropdownMenuItem>
                         </Link>
                         <DropdownMenuSeparator />
@@ -148,13 +157,13 @@ export function Navbar() {
                       onClick={handleLogout}
                       className="text-red-600 cursor-pointer"
                     >
-                      Sair
+                      {t('navbar', 'logout')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
                 <Button onClick={() => window.location.href = "/auth"}>
-                  Entrar
+                  {t('navbar', 'login')}
                 </Button>
               )}
 
@@ -211,7 +220,7 @@ export function Navbar() {
                       className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
                       onClick={() => setShowMobileMenu(false)}
                     >
-                      Admin Dashboard
+                      {t('navbar', 'adminPanel')}
                     </Link>
                   )}
                   {!isAdmin && (
@@ -220,7 +229,7 @@ export function Navbar() {
                       className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
                       onClick={() => setShowMobileMenu(false)}
                     >
-                      Meus Pedidos
+                      {t('navbar', 'myOrders')}
                     </Link>
                   )}
                   <button
@@ -230,7 +239,7 @@ export function Navbar() {
                       setShowMobileMenu(false);
                     }}
                   >
-                    Sair
+                    {t('navbar', 'logout')}
                   </button>
                 </div>
               </div>

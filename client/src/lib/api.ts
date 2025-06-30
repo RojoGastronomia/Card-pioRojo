@@ -3,6 +3,7 @@ type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
 interface RequestOptions {
   headers?: Record<string, string>;
   signal?: AbortSignal;
+  onUploadProgress?: (progressEvent: ProgressEvent) => void;
 }
 
 class ApiError extends Error {
@@ -18,8 +19,60 @@ export async function apiRequest<T = any>(
   data?: any,
   options: RequestOptions = {}
 ): Promise<T> {
+  // Detectar se é FormData para não definir Content-Type nem serializar como JSON
+  const isFormData = data instanceof FormData;
+  
+  // Se há onUploadProgress e é FormData, usar XMLHttpRequest
+  if (options.onUploadProgress && isFormData) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      
+      xhr.upload.addEventListener('progress', options.onUploadProgress!);
+      
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const response = xhr.responseText ? JSON.parse(xhr.responseText) : undefined;
+            resolve(response);
+          } catch (error) {
+            reject(new Error('Invalid JSON response'));
+          }
+        } else {
+          let errorMessage = 'An error occurred';
+          try {
+            const errorData = JSON.parse(xhr.responseText);
+            errorMessage = errorData.message || errorMessage;
+          } catch {
+            errorMessage = xhr.statusText;
+          }
+          reject(new ApiError(xhr.status, errorMessage));
+        }
+      });
+      
+      xhr.addEventListener('error', () => {
+        reject(new Error('Network error'));
+      });
+      
+      xhr.addEventListener('abort', () => {
+        reject(new Error('Request was cancelled'));
+      });
+      
+      xhr.open(method, endpoint);
+      xhr.withCredentials = true; // Para cookies/session
+      
+      // Definir headers
+      Object.entries(options.headers || {}).forEach(([key, value]) => {
+        xhr.setRequestHeader(key, value);
+      });
+      
+      xhr.send(data);
+    });
+  }
+  
+  // Caso padrão usando fetch
   const headers = {
-    'Content-Type': 'application/json',
+    // Não definir Content-Type para FormData, deixar o browser definir automaticamente
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...options.headers,
   };
 
@@ -27,7 +80,8 @@ export async function apiRequest<T = any>(
     const response = await fetch(endpoint, {
       method,
       headers,
-      body: data ? JSON.stringify(data) : undefined,
+      // Para FormData, enviar diretamente; para outros dados, serializar como JSON
+      body: data ? (isFormData ? data : JSON.stringify(data)) : undefined,
       credentials: 'include', // Important for cookies/session
       signal: options.signal,
     });
@@ -44,12 +98,16 @@ export async function apiRequest<T = any>(
       throw new ApiError(response.status, errorMessage);
     }
 
-    // For 204 No Content
-    if (response.status === 204) {
+    // Para 204 No Content ou sem corpo
+    if (response.status === 204 || response.headers.get("content-length") === "0") {
       return undefined as T;
     }
 
-    return response.json();
+    const text = await response.text();
+    if (!text) {
+      return undefined as T;
+    }
+    return JSON.parse(text);
   } catch (error) {
     if (error instanceof ApiError) {
       throw error;

@@ -6,6 +6,7 @@ import { LogIn } from "lucide-react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
+import { useLanguage } from "@/context/language-context";
 
 interface CartContextType {
   cartItems: CartItem[];
@@ -39,6 +40,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [cartOpen, setCartOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [pendingCartItem, setPendingCartItem] = useState<CartItem | null>(null);
+  const { t } = useLanguage();
 
   // Load cart from localStorage on initial load
   useEffect(() => {
@@ -257,7 +259,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         <DialogContent className="max-w-md p-0 gap-0 flex flex-col">
           <DialogHeader className="p-6 pb-0">
             <DialogTitle className="text-xl font-semibold text-center">
-              Autenticação Necessária
+              {t('auth', 'authRequiredTitle')}
             </DialogTitle>
           </DialogHeader>
           
@@ -267,11 +269,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
             </div>
             
             <p className="text-center font-medium text-gray-800 mb-3">
-              Você precisa estar logado para acessar o carrinho
+              {t('auth', 'authRequiredMessage')}
             </p>
             
             <p className="text-center text-gray-500 text-sm mb-6">
-              Faça login para ver seus itens salvos e continuar suas compras
+              {t('auth', 'authRequiredDescription')}
             </p>
             
             <div className="flex flex-col gap-4">
@@ -279,7 +281,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 className="w-full bg-primary text-white"
                 onClick={handleLogin}
               >
-                Fazer Login
+                {t('auth', 'loginButton')}
               </Button>
               
               <Button 
@@ -287,7 +289,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 className="w-full"
                 onClick={closeLoginModal}
               >
-                Continuar Navegando
+                {t('auth', 'continueBrowsing')}
               </Button>
             </div>
           </div>

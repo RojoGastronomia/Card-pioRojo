@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -95,6 +95,7 @@ export default function DishForm({
     onSuccess: (data) => {
       console.log("[Mutation] Add dish success. Response data:", data);
       onOpenChange(false);
+      form.reset();
       console.log("[Mutation] Invalidating dishes query...");
       queryClient.invalidateQueries({ queryKey: ["/api/menus", menuId, "dishes"] });
       console.log("[Mutation] Dishes query invalidated.");
@@ -122,6 +123,7 @@ export default function DishForm({
     },
     onSuccess: () => {
       onOpenChange(false);
+      form.reset();
       queryClient.invalidateQueries({ queryKey: ["/api/menus", menuId, "dishes"] });
       toast({
         title: "Prato atualizado",
@@ -152,6 +154,13 @@ export default function DishForm({
       setIsSubmitting(false);
     }
   };
+
+  // Reset form when dialog is closed
+  useEffect(() => {
+    if (!open) {
+      form.reset();
+    }
+  }, [open, form]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

@@ -35,7 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, PencilLine, Trash2, Filter, Link as LinkIcon, BookOpen, ListChecks } from "lucide-react";
+import { Search, PencilLine, Trash2, Filter, Link as LinkIcon, BookOpen, ListChecks, Tag, Pencil, Trash } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -44,6 +44,7 @@ import { z } from "zod";
 import { formatCurrency } from "@/lib/utils";
 import React from "react";
 import { useRealtimeUpdates } from "@/hooks/use-realtime-updates";
+import { Textarea } from "@/components/ui/textarea";
 
 // Form schema
 const dishFormSchema = z.object({
@@ -63,6 +64,14 @@ const associateDishSchema = z.object({
 
 type AssociateDishValues = z.infer<typeof associateDishSchema>;
 
+// Form schema para categorias
+const categoryFormSchema = z.object({
+  name: z.string().min(1, "Nome é obrigatório"),
+  nameEn: z.string().optional(),
+});
+
+type CategoryFormValues = z.infer<typeof categoryFormSchema>;
+
 export default function AdminDishesPage() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
@@ -73,6 +82,9 @@ export default function AdminDishesPage() {
   const [selectedDish, setSelectedDish] = useState<any | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [linkedMenus, setLinkedMenus] = useState<any[]>([]);
+  const [showCategoryDialog, setShowCategoryDialog] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [isEditingCategory, setIsEditingCategory] = useState(false);
   
   // Configurar atualizações em tempo real para pratos e menus
   const realtimeUpdates = useRealtimeUpdates({
@@ -102,6 +114,18 @@ export default function AdminDishesPage() {
     refetchIntervalInBackground: false
   });
 
+  // Fetch categories
+  const { data: categories = [], isLoading: isLoadingCategories, refetch: refetchCategories } = useQuery({
+    queryKey: ["/api/categories"],
+    queryFn: async () => {
+      const response = await fetch("/api/categories");
+      if (!response.ok) {
+        throw new Error("Erro ao carregar categorias");
+      }
+      return response.json();
+    },
+  });
+
   // Extract unique dishes by name (to avoid showing duplicates)
   const uniqueDishes = React.useMemo(() => {
     const dishMap = new Map();
@@ -116,21 +140,8 @@ export default function AdminDishesPage() {
 
   // Get category display text
   const getCategoryDisplay = (category: string) => {
-    // Definir as categorias válidas
-    const categories: Record<string, string> = {
-      'appetizer': 'Entrada',
-      'main': 'Prato Principal',
-      'dessert': 'Sobremesa',
-      'bebidas': 'Bebidas',
-      'BEBIDAS': 'Bebidas',
-      'executive': 'Executivo',
-      'premium': 'Premium',
-      'classic': 'Clássico',
-      'gourmet': 'Gourmet',
-      'international': 'Internacional',
-      'party': 'Festa'
-    };
-    return categories[category.toLowerCase()] || category;
+    const foundCategory = categories.find(c => c.name.toLowerCase() === category.toLowerCase());
+    return foundCategory?.name || category;
   };
 
   // Extract unique categories from dishes
@@ -159,7 +170,7 @@ export default function AdminDishesPage() {
       description: "",
       price: 0,
       image_url: "",
-      category: "appetizer",
+      category: categories[0]?.name || "",
     },
   });
 
@@ -167,6 +178,15 @@ export default function AdminDishesPage() {
     resolver: zodResolver(associateDishSchema),
     defaultValues: {
       menuId: 0,
+    },
+  });
+
+  // Form para categorias
+  const categoryForm = useForm<CategoryFormValues>({
+    resolver: zodResolver(categoryFormSchema),
+    defaultValues: {
+      name: "",
+      nameEn: "",
     },
   });
 
@@ -442,10 +462,154 @@ export default function AdminDishesPage() {
     return matchesSearch && matchesCategory;
   });
 
+  // Add category mutation
+  const addCategoryMutation = useMutation({
+    mutationFn: async (data: { name: string; nameEn?: string }) => {
+      console.log("Enviando dados para adicionar categoria:", data);
+      const response = await fetch("/api/categories", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Erro ao adicionar categoria");
+      }
+
+      const result = await response.json();
+      console.log("Resposta da adição de categoria:", result);
+      return result;
+    },
+    onSuccess: async (data) => {
+      console.log("Categoria adicionada com sucesso:", data);
+      toast.success("Categoria adicionada com sucesso");
+      categoryForm.reset();
+      setSelectedCategory(null);
+      setIsEditingCategory(false);
+      await refetchCategories();
+    },
+    onError: (error) => {
+      console.error("Erro ao adicionar categoria:", error);
+      toast.error(error.message || "Erro ao adicionar categoria");
+    },
+  });
+
+  // Update category mutation
+  const updateCategoryMutation = useMutation({
+    mutationFn: async ({ id, categoryData }: { id: string; categoryData: CategoryFormValues }) => {
+      console.log("[Mutation] Sending update category request:", { id, categoryData });
+      const res = await apiRequest("PUT", `/api/categories/${id}`, categoryData);
+      return await res.json();
+    },
+    onSuccess: () => {
+      console.log("[Mutation] Update category success");
+      setShowCategoryDialog(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      toast({
+        title: "Categoria atualizada",
+        description: "Categoria foi atualizada com sucesso",
+      });
+      categoryForm.reset();
+    },
+    onError: (error: Error) => {
+      console.error("[Mutation] Error updating category:", error);
+      toast({
+        title: "Erro ao atualizar categoria",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete category mutation
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (categoryId: string) => {
+      await apiRequest("DELETE", `/api/categories/${categoryId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      toast({
+        title: "Categoria excluída",
+        description: "Categoria foi excluída com sucesso",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao excluir categoria",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handle edit category
+  const handleEditCategory = (category: Category) => {
+    setSelectedCategory(category);
+    setIsEditingCategory(true);
+    categoryForm.reset({
+      name: category.name,
+      nameEn: category.nameEn || "",
+    });
+  };
+
+  // Handle category form submission
+  const onSubmitCategory = async (data: CategoryFormValues) => {
+    try {
+      console.log("Iniciando submissão de categoria:", data);
+      if (selectedCategory) {
+        await updateCategoryMutation.mutateAsync({
+          id: selectedCategory.id.toString(),
+          ...data,
+        });
+      } else {
+        await addCategoryMutation.mutateAsync(data);
+      }
+    } catch (error) {
+      console.error("Erro na submissão:", error);
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar categoria");
+    }
+  };
+
+  // Handle delete category
+  const handleDeleteCategory = async (id: string) => {
+    if (window.confirm("Tem certeza que deseja excluir esta categoria?")) {
+      try {
+        await deleteCategoryMutation.mutateAsync(id);
+      } catch (error) {
+        console.error("Erro ao excluir categoria:", error);
+        toast.error(error instanceof Error ? error.message : "Erro ao excluir categoria");
+      }
+    }
+  };
+
+  // Handle new category
+  const handleNewCategory = () => {
+    setSelectedCategory(null);
+    setIsEditingCategory(true);
+    categoryForm.reset();
+  };
+
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Gerenciar Pratos</h1>
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => {
+              setSelectedCategory(null);
+              setIsEditingCategory(false);
+              categoryForm.reset();
+              setShowCategoryDialog(true);
+            }}
+            variant="outline"
+            className="gap-2"
+          >
+            <Tag size={16} />
+            Gerenciar Categorias
+          </Button>
         <Button 
           onClick={() => {
             setIsEditing(false);
@@ -458,6 +622,7 @@ export default function AdminDishesPage() {
           <PencilLine size={16} />
           Criar Novo Prato
         </Button>
+        </div>
       </div>
 
       {/* Filter Controls */}
@@ -578,113 +743,105 @@ export default function AdminDishesPage() {
 
       {/* Add/Edit Dish Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>{isEditing ? "Editar Prato" : "Criar Novo Prato"}</DialogTitle>
+            <DialogTitle>
+              {isEditing ? "Editar Prato" : "Novo Prato"}
+            </DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Nome</FormLabel>
+                    <FormLabel>Nome do Prato</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                      <Input placeholder="Digite o nome do prato" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                
                 <FormField
                   control={form.control}
-                  name="category"
+                name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Categoria</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
+                    <FormLabel>Descrição</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione uma categoria" />
-                          </SelectTrigger>
+                      <Textarea placeholder="Digite a descrição do prato" {...field} />
                         </FormControl>
-                        <SelectContent>
-                          {uniqueCategories.map((category) => (
-                            <SelectItem key={category} value={category}>
-                              {getCategoryDisplay(category)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              </div>
-              
               <FormField
                 control={form.control}
-                name="description"
+                name="price"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Descrição</FormLabel>
+                    <FormLabel>Preço</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="Digite o preço"
+                        {...field}
+                        onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
-                  name="price"
+                name="image_url"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Preço (R$)</FormLabel>
+                    <FormLabel>URL da Imagem</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
-                          step="0.01"
-                          {...field}
-                        />
+                      <Input placeholder="Digite a URL da imagem" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                
                 <FormField
                   control={form.control}
-                  name="image_url"
+                name="category"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>URL da Imagem (opcional)</FormLabel>
+                    <FormLabel>Categoria</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
                       <FormControl>
-                        <Input {...field} />
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione uma categoria" />
+                        </SelectTrigger>
                       </FormControl>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id} value={category.name}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              </div>
-              
               <DialogFooter>
                 <DialogClose asChild>
-                  <Button variant="outline" type="button">Cancelar</Button>
+                  <Button type="button" variant="outline">Cancelar</Button>
                 </DialogClose>
-                <Button 
-                  type="submit"
-                  disabled={addDishMutation.isPending || updateDishMutation.isPending}
-                >
-                  {isEditing ? "Atualizar" : "Criar"} Prato
+                <Button type="submit">
+                  {isEditing ? "Salvar" : "Adicionar"}
                 </Button>
               </DialogFooter>
             </form>
@@ -825,6 +982,125 @@ export default function AdminDishesPage() {
               <Button variant="outline" type="button">Fechar</Button>
             </DialogClose>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Category Management Dialog */}
+      <Dialog open={showCategoryDialog} onOpenChange={setShowCategoryDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Gerenciar Categorias</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-medium">Categorias</h3>
+              <Button onClick={handleNewCategory}>
+                Nova Categoria
+              </Button>
+            </div>
+            
+            {!isEditingCategory && (
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {isLoadingCategories ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                ) : categories.length > 0 ? (
+                  categories.map((category) => (
+                    <div
+                      key={category.id}
+                      className="flex items-center justify-between p-2 border rounded-lg"
+                    >
+                      <div>
+                        <p className="font-medium">{category.name}</p>
+                        {category.nameEn && (
+                          <p className="text-sm text-muted-foreground">{category.nameEn}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditCategory(category)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteCategory(category.id.toString())}
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-center text-muted-foreground py-4">
+                    Nenhuma categoria cadastrada
+                  </p>
+                )}
+              </div>
+            )}
+
+            {isEditingCategory && (
+              <Form {...categoryForm}>
+                <form onSubmit={categoryForm.handleSubmit(onSubmitCategory)} className="space-y-4">
+                  <FormField
+                    control={categoryForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome da Categoria</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={categoryForm.control}
+                    name="nameEn"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome em Inglês (opcional)</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        categoryForm.reset();
+                        setSelectedCategory(null);
+                        setIsEditingCategory(false);
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={addCategoryMutation.isPending || updateCategoryMutation.isPending}
+                    >
+                      {addCategoryMutation.isPending || updateCategoryMutation.isPending
+                        ? "Salvando..."
+                        : selectedCategory
+                        ? "Salvar"
+                        : "Adicionar"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </main>

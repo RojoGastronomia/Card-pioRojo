@@ -51,15 +51,23 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { useLanguage } from "@/context/language-context";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Schema for editing users - password is optional
 const editUserSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
   username: z.string().min(2, { message: "Username must be at least 2 characters" }),
   email: z.string().email({ message: "Please enter a valid email address" }),
-  role: z.string(),
+  role: z.string().min(1, { message: "Role is required" }),
   phone: z.string().optional(),
-  password: z.string().optional(),
+  password: z.string().optional()
 });
 
 // Schema for new users - password is required
@@ -67,9 +75,14 @@ const newUserSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
   username: z.string().min(2, { message: "Username must be at least 2 characters" }),
   email: z.string().email({ message: "Please enter a valid email address" }),
-  role: z.string(),
+  role: z.string().min(1, { message: "Role is required" }),
   phone: z.string().optional(),
-  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+  password: z.string()
+    .min(8, { message: "A senha deve ter pelo menos 8 caracteres" })
+    .regex(/[A-Z]/, { message: "A senha deve conter pelo menos uma letra maiúscula" })
+    .regex(/[a-z]/, { message: "A senha deve conter pelo menos uma letra minúscula" })
+    .regex(/[0-9]/, { message: "A senha deve conter pelo menos um número" })
+    .regex(/[^A-Za-z0-9]/, { message: "A senha deve conter pelo menos um caractere especial" }),
 });
 
 type EditUserFormValues = z.infer<typeof editUserSchema>;
@@ -83,6 +96,7 @@ export default function AdminUsersPage() {
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const { t } = useLanguage();
 
   // Fetch user history
   const { data: userHistory, isLoading: isLoadingHistory } = useQuery({
@@ -105,7 +119,7 @@ export default function AdminUsersPage() {
   useEffect(() => {
     if (isError && error) {
       toast({
-        title: "Error loading users",
+        title: t('users', 'loadError'),
         description: error.message,
         variant: "destructive",
       });
@@ -120,15 +134,16 @@ export default function AdminUsersPage() {
     },
     onSuccess: () => {
       setShowAddDialog(false);
+      addUserForm.reset();
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       toast({
-        title: "User added",
-        description: "User has been added successfully.",
+        title: t('users', 'userAdded'),
+        description: t('users', 'userAddedSuccess'),
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Error adding user",
+        title: t('users', 'addError'),
         description: error.message,
         variant: "destructive",
       });
@@ -143,13 +158,13 @@ export default function AdminUsersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       toast({
-        title: "User deleted",
-        description: "User has been deleted successfully.",
+        title: t('users', 'userDeleted'),
+        description: t('users', 'userDeletedSuccess'),
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Error deleting user",
+        title: t('users', 'deleteError'),
         description: error.message,
         variant: "destructive",
       });
@@ -159,21 +174,40 @@ export default function AdminUsersPage() {
   // Edit user mutation
   const editUserMutation = useMutation({
     mutationFn: async (userData: Partial<EditUserFormValues> & { id: number }) => {
+      console.log('[Debug] editUserMutation.mutationFn called with:', userData);
       const { id, ...data } = userData;
+      console.log('[Debug] sending PUT request to:', `/api/users/${id}`, 'with data:', data);
       const res = await apiRequest("PUT", `/api/users/${id}`, data);
-      return await res.json();
+      const responseData = await res.json();
+      console.log('[Debug] response received:', responseData);
+      return responseData;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('[Debug] editUserMutation.onSuccess called with:', data);
       setShowEditDialog(false);
+      editUserForm.reset();
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.refetchQueries({ queryKey: ["/api/users"] });
+      // Troca para a aba correta conforme o novo papel
+      if (data && data.role) {
+        if (data.role === 'Administrador') setActiveTab('admins');
+        else if (data.role === 'Comercial') setActiveTab('comercial');
+        else setActiveTab('clients');
+        toast({
+          title: t('users', 'userUpdated'),
+          description: t('users', 'userUpdatedSuccess') + `\nUsuário movido para a aba: ${data.role}`,
+        });
+      } else {
       toast({
-        title: "Usuário atualizado",
-        description: "As informações do usuário foram atualizadas com sucesso.",
+        title: t('users', 'userUpdated'),
+        description: t('users', 'userUpdatedSuccess'),
       });
+      }
     },
     onError: (error: Error) => {
+      console.log('[Debug] editUserMutation.onError called with:', error);
       toast({
-        title: "Erro ao atualizar usuário",
+        title: t('users', 'updateError'),
         description: error.message,
         variant: "destructive",
       });
@@ -215,8 +249,11 @@ export default function AdminUsersPage() {
   const onEditSubmit = (values: EditUserFormValues) => {
     if (!selectedUser) return;
     
-    // Prepare update data without password
-    const dataToUpdate = {
+    console.log('[Debug] onEditSubmit called with values:', values);
+    console.log('[Debug] selectedUser:', selectedUser);
+    
+    // Prepare update data
+    const dataToUpdate: Partial<EditUserFormValues> = {
       name: values.name,
       username: values.username,
       email: values.email,
@@ -224,10 +261,13 @@ export default function AdminUsersPage() {
       phone: values.phone,
     };
     
-    // Only include password if it's not empty
-    if (values.password && values.password.trim().length > 0) {
+    // Só inclui a senha se ela foi preenchida e não estiver vazia
+    if (values.password && values.password.trim() !== "") {
       Object.assign(dataToUpdate, { password: values.password });
     }
+    
+    console.log('[Debug] dataToUpdate:', dataToUpdate);
+    console.log('[Debug] sending to mutation:', { ...dataToUpdate, id: selectedUser.id });
     
     editUserMutation.mutate({ ...dataToUpdate, id: selectedUser.id });
   };
@@ -251,7 +291,17 @@ export default function AdminUsersPage() {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = activeTab === "clients" ? user.role === "client" : user.role === "Administrador";
+    
+    // Filtro correto por papel/role
+    let matchesRole = false;
+    if (activeTab === "clients") {
+      matchesRole = user.role === "client";
+    } else if (activeTab === "admins") {
+      matchesRole = user.role === "Administrador";
+    } else if (activeTab === "comercial") {
+      matchesRole = user.role === "Comercial";
+    }
+    
     return matchesSearch && matchesRole;
   });
   
@@ -260,24 +310,39 @@ export default function AdminUsersPage() {
     console.log(`[Debug] Filtered users for tab '${activeTab}':`, filteredUsers);
   }, [filteredUsers, activeTab]);
 
+  // Reset form when dialog is closed
+  useEffect(() => {
+    if (!showAddDialog) {
+      addUserForm.reset();
+    }
+  }, [showAddDialog, addUserForm]);
+
+  // Reset edit form when dialog is closed
+  useEffect(() => {
+    if (!showEditDialog) {
+      editUserForm.reset();
+      setSelectedUser(null);
+    }
+  }, [showEditDialog, editUserForm]);
+
   return (
     <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Usuários</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('users', 'title')}</h1>
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
                 </svg>
-                Novo Usuário
+                {t('users', 'newUser')}
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Novo Usuário</DialogTitle>
+                <DialogTitle>{t('users', 'newUser')}</DialogTitle>
                 <DialogDescription>
-                  Preencha os campos abaixo para adicionar um novo usuário.
+                  {t('users', 'newUserDescription')}
                 </DialogDescription>
               </DialogHeader>
             <Form {...addUserForm}>
@@ -288,9 +353,9 @@ export default function AdminUsersPage() {
                       name="name"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Nome</FormLabel>
+                          <FormLabel>{t('users', 'fullName')}</FormLabel>
                           <FormControl>
-                            <Input placeholder="Nome completo" {...field} />
+                            <Input placeholder={t('users', 'fullNamePlaceholder')} {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -301,9 +366,9 @@ export default function AdminUsersPage() {
                       name="username"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Nome de Usuário</FormLabel>
+                          <FormLabel>{t('users', 'username')}</FormLabel>
                           <FormControl>
-                            <Input placeholder="username" {...field} />
+                            <Input placeholder={t('users', 'usernamePlaceholder')} {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -316,9 +381,9 @@ export default function AdminUsersPage() {
                       name="email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Email</FormLabel>
+                          <FormLabel>{t('users', 'email')}</FormLabel>
                           <FormControl>
-                            <Input placeholder="email@exemplo.com" {...field} />
+                            <Input placeholder={t('users', 'emailPlaceholder')} {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -329,9 +394,9 @@ export default function AdminUsersPage() {
                       name="phone"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Telefone</FormLabel>
+                          <FormLabel>{t('users', 'phone')}</FormLabel>
                           <FormControl>
-                            <Input placeholder="(99) 99999-9999" {...field} />
+                            <Input placeholder={t('users', 'phonePlaceholder')} {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -343,9 +408,9 @@ export default function AdminUsersPage() {
                     name="password"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Senha</FormLabel>
+                        <FormLabel>{t('users', 'password')}</FormLabel>
                         <FormControl>
-                          <Input type="password" placeholder="******" {...field} />
+                          <Input type="password" placeholder={t('users', 'passwordPlaceholder')} {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -356,15 +421,21 @@ export default function AdminUsersPage() {
                     name="role"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Tipo de Usuário</FormLabel>
+                        <FormLabel>{t('users', 'userType')}</FormLabel>
                         <FormControl>
-                          <select 
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            {...field}
+                          <Select
+                            onValueChange={(value) => field.onChange(value)}
+                            defaultValue={field.value}
                           >
-                            <option value="client">Cliente</option>
-                          <option value="Administrador">Administrador</option>
-                          </select>
+                            <SelectTrigger>
+                              <SelectValue placeholder={t('users', 'selectUserType')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="client">{t('users', 'userTypeUser')}</SelectItem>
+                              <SelectItem value="Administrador">{t('users', 'userTypeAdmin')}</SelectItem>
+                              <SelectItem value="Comercial">Comercial</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -372,10 +443,10 @@ export default function AdminUsersPage() {
                   />
                   <DialogFooter>
                     <DialogClose asChild>
-                      <Button type="button" variant="outline">Cancelar</Button>
+                      <Button type="button" variant="outline">{t('common', 'cancel')}</Button>
                     </DialogClose>
                     <Button type="submit" disabled={addUserMutation.isPending}>
-                      {addUserMutation.isPending ? "Salvando..." : "Salvar"}
+                      {addUserMutation.isPending ? t('common', 'saving') : t('users', 'createUser')}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -391,14 +462,21 @@ export default function AdminUsersPage() {
             className="rounded-full"
             onClick={() => setActiveTab("clients")}
           >
-            Clientes
+            {t('users', 'userTypeUser')}
           </Button>
           <Button 
             variant={activeTab === "admins" ? "default" : "ghost"} 
             className="rounded-full"
             onClick={() => setActiveTab("admins")}
           >
-            Administradores
+            {t('users', 'userTypeAdmin')}
+          </Button>
+          <Button 
+            variant={activeTab === "comercial" ? "default" : "ghost"} 
+            className="rounded-full"
+            onClick={() => setActiveTab("comercial")}
+          >
+            Comercial
           </Button>
         </div>
 
@@ -411,15 +489,18 @@ export default function AdminUsersPage() {
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" className="gap-2">
                       <Filter size={16} />
-                    {activeTab === "clients" ? "Clientes" : "Administradores"}
+                    {activeTab === "clients" ? t('users', 'userTypeUser') : activeTab === "admins" ? t('users', 'userTypeAdmin') : t('users', 'userTypeComercial')}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
                   <DropdownMenuItem onClick={() => setActiveTab("clients")}>
-                    Clientes
+                    {t('users', 'userTypeUser')}
                     </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setActiveTab("admins")}>
-                    Administradores
+                    {t('users', 'userTypeAdmin')}
+                    </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveTab("comercial")}>
+                    Comercial
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -429,7 +510,7 @@ export default function AdminUsersPage() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                 <Input
                   type="text"
-                  placeholder="Buscar usuários..."
+                  placeholder={t('users', 'searchPlaceholder')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -462,11 +543,11 @@ export default function AdminUsersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                  <TableHead className="w-[250px]">Nome</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Contatos</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
+                  <TableHead className="w-[250px]">{t('users', 'name')}</TableHead>
+                    <TableHead>{t('users', 'userType')}</TableHead>
+                    <TableHead>{t('users', 'contacts')}</TableHead>
+                    <TableHead>{t('users', 'status')}</TableHead>
+                    <TableHead className="text-right">{t('users', 'actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -478,14 +559,32 @@ export default function AdminUsersPage() {
                         <div className="text-sm text-muted-foreground">{user.username}</div>
                       </TableCell>
                       <TableCell>
-                        {user.role === 'Administrador' ? 'Administrador' : 'Cliente'}
+                        {user.role === 'Administrador' ? (
+                          <span className="inline-flex items-center gap-1">
+                            <Badge variant="secondary" className="bg-red-100 text-red-800 border-red-200">
+                              {t('users', 'userTypeAdmin')}
+                            </Badge>
+                          </span>
+                        ) : user.role === 'Comercial' ? (
+                          <span className="inline-flex items-center gap-1">
+                            <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                              Comercial
+                            </Badge>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1">
+                            <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">
+                              {t('users', 'userTypeUser')}
+                            </Badge>
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">{user.phone || "-"}</div>
                         <div className="text-sm text-muted-foreground">{user.email}</div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">Ativo</Badge>
+                        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">{t('common', 'available')}</Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end space-x-1">
@@ -510,7 +609,7 @@ export default function AdminUsersPage() {
                             variant="ghost" 
                             size="icon"
                             onClick={() => {
-                              if (confirm(`Tem certeza que deseja deletar ${user.name}?`)) {
+                              if (confirm(`${t('users', 'confirmDelete')} ${user.name}${t('users', 'questionMark')}`)) {
                                 deleteUserMutation.mutate(user.id);
                               }
                             }}
@@ -537,9 +636,9 @@ export default function AdminUsersPage() {
         <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Histórico de Participação</DialogTitle>
+              <DialogTitle>{t('users', 'participationHistory')}</DialogTitle>
               <DialogDescription>
-                Histórico de participação em eventos para {selectedUser?.name}
+                {t('users', 'participationHistoryDescription')} {selectedUser?.name}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -551,38 +650,38 @@ export default function AdminUsersPage() {
             ) : userHistory && userHistory.length > 0 ? (
               userHistory.map((item: any) => (
                 <div key={item.id} className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="font-medium text-gray-900 mb-2">{item.event?.name || "Evento não encontrado"}</h3>
+                  <h3 className="font-medium text-gray-900 mb-2">{item.event?.name || t('users', 'eventNotFound')}</h3>
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600">Data:</span>
+                  <span className="text-gray-600">{t('users', 'date')}:</span>
                     <span>{new Date(item.event?.date || "").toLocaleDateString()}</span>
                 </div>
                 <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-600">Total:</span>
-                    <span>R$ {item.total.toFixed(2)}</span>
+                    <span className="text-gray-600">{t('users', 'total')}:</span>
+                    <span>R$ {item.totalAmount?.toFixed(2) ?? "0,00"}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Status:</span>
+                  <span className="text-gray-600">{t('users', 'status')}:</span>
                     <span className={
                       item.status === "completed" ? "text-green-600" :
                       item.status === "pending" ? "text-yellow-600" :
                       "text-red-600"
                     }>
-                      {item.status === "completed" ? "Concluído" :
-                       item.status === "pending" ? "Pendente" :
-                       "Cancelado"}
+                      {item.status === "completed" ? t('users', 'statusCompleted') :
+                       item.status === "pending" ? t('users', 'statusPending') :
+                       t('users', 'statusCancelled')}
                     </span>
                   </div>
                 </div>
               ))
             ) : (
               <div className="text-center py-8">
-                <p className="text-gray-500">Nenhum histórico encontrado.</p>
+                <p className="text-gray-500">{t('users', 'noHistoryFound')}</p>
               </div>
             )}
             </div>
             <DialogFooter>
               <Button onClick={() => setShowHistoryDialog(false)}>
-                Fechar
+                {t('users', 'close')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -592,9 +691,9 @@ export default function AdminUsersPage() {
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Editar Usuário</DialogTitle>
+            <DialogTitle>{t('users', 'editUser')}</DialogTitle>
             <DialogDescription>
-              Edite as informações do usuário {selectedUser?.name}.
+              {t('users', 'editUserDescription')} {selectedUser?.name}.
             </DialogDescription>
           </DialogHeader>
           <Form {...editUserForm}>
@@ -605,9 +704,9 @@ export default function AdminUsersPage() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Nome</FormLabel>
+                      <FormLabel>{t('users', 'fullName')}</FormLabel>
                       <FormControl>
-                        <Input placeholder="Nome completo" {...field} />
+                        <Input placeholder={t('users', 'fullNamePlaceholder')} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -618,9 +717,9 @@ export default function AdminUsersPage() {
                   name="username"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Nome de Usuário</FormLabel>
+                      <FormLabel>{t('users', 'username')}</FormLabel>
                       <FormControl>
-                        <Input placeholder="username" {...field} />
+                        <Input placeholder={t('users', 'usernamePlaceholder')} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -633,9 +732,9 @@ export default function AdminUsersPage() {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email</FormLabel>
+                      <FormLabel>{t('users', 'email')}</FormLabel>
                       <FormControl>
-                        <Input placeholder="email@exemplo.com" {...field} />
+                        <Input placeholder={t('users', 'emailPlaceholder')} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -646,9 +745,9 @@ export default function AdminUsersPage() {
                   name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Telefone</FormLabel>
+                      <FormLabel>{t('users', 'phone')}</FormLabel>
                       <FormControl>
-                        <Input placeholder="(99) 99999-9999" {...field} />
+                        <Input placeholder={t('users', 'phonePlaceholder')} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -660,9 +759,9 @@ export default function AdminUsersPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Nova Senha (deixe em branco para manter a atual)</FormLabel>
+                    <FormLabel>{t('users', 'newPassword')}</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="******" {...field} />
+                      <Input type="password" placeholder={t('users', 'passwordPlaceholder')} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -673,14 +772,15 @@ export default function AdminUsersPage() {
                 name="role"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Tipo de Usuário</FormLabel>
+                    <FormLabel>{t('users', 'userType')}</FormLabel>
                     <FormControl>
                       <select 
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                         {...field}
                       >
-                        <option value="client">Cliente</option>
-                        <option value="Administrador">Administrador</option>
+                        <option value="client">{t('users', 'userTypeUser')}</option>
+                        <option value="Administrador">{t('users', 'userTypeAdmin')}</option>
+                        <option value="Comercial">Comercial</option>
                       </select>
                     </FormControl>
                     <FormMessage />
@@ -689,10 +789,10 @@ export default function AdminUsersPage() {
               />
               <DialogFooter>
                 <DialogClose asChild>
-                  <Button type="button" variant="outline">Cancelar</Button>
+                  <Button type="button" variant="outline">{t('common', 'cancel')}</Button>
                 </DialogClose>
                 <Button type="submit" disabled={editUserMutation.isPending}>
-                  {editUserMutation.isPending ? "Salvando..." : "Salvar"}
+                  {editUserMutation.isPending ? t('common', 'saving') : t('common', 'save')}
                 </Button>
               </DialogFooter>
             </form>

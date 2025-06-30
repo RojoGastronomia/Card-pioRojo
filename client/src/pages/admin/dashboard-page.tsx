@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Footer } from "@/components/layout/footer";
 import StatsCard from "@/components/admin/stats-card";
 import { Navbar } from "@/components/layout/navbar";
@@ -26,26 +26,108 @@ import { getApiBaseUrl } from "@/lib/queryClient";
 import { toast as sonnerToast } from "sonner";
 import { useSSEStats } from "@/hooks/use-sse-stats";
 import { RecentOrdersTable } from "@/components/admin/RecentOrdersTable";
+import { useLanguage } from "@/context/language-context";
+import { PieLabelRenderProps } from 'recharts';
 
 // Atualizar as cores do gráfico para serem mais distintas e agradáveis
 const CHART_COLORS = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#3B82F6', '#8B5CF6', '#EC4899'];
 
 type DashboardStats = any;
 
+type CustomPieLabelProps = {
+  cx: number;
+  cy: number;
+  midAngle: number;
+  innerRadius: number;
+  outerRadius: number;
+  percent: number;
+  name: string;
+};
+
+// Label customizado para o PieChart
+const renderCustomPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }: CustomPieLabelProps) => {
+  if (percent === 0) return null;
+  const RADIAN = Math.PI / 180;
+  // Calcular posição do label
+  const radius = innerRadius + (outerRadius - innerRadius) * 1.15;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="#222"
+      textAnchor={x > cx ? 'start' : 'end'}
+      dominantBaseline="central"
+      fontSize={14}
+      fontWeight={600}
+      style={{ pointerEvents: 'none' }}
+    >
+      {`${name} ${(percent * 100).toFixed(0)}%`}
+    </text>
+  );
+};
+
 export default function DashboardPage() {
   const { toast } = useToast();
   const { isAuthenticated, user } = useAuth();
-  const [dateRange, setDateRange] = useState({
-    start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-    end: new Date().toISOString().split('T')[0]
-  });
+  const { t } = useLanguage();
+  
+  // Função para formatar data sem problemas de timezone
+  const formatDateDisplay = useCallback((dateString: string) => {
+    // Dividir a data em partes para evitar problemas de timezone
+    const [year, month, day] = dateString.split('-');
+    return `${day}/${month}/${year}`;
+  }, []);
+
+  // Função para formatar nome do mês
+  const formatMonthName = useCallback((dateString: string) => {
+    const [year, month] = dateString.split('-');
+    const monthIndex = parseInt(month) - 1; // Mês começa em 0 no JavaScript
+    const monthNames = [
+      'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+      'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
+    ];
+    return `${monthNames[monthIndex]} de ${year}`;
+  }, []);
+
+  // Função para obter o filtro padrão do mês atual
+  const getCurrentMonthFilter = useCallback(() => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth(); // 0-11
+    const day = today.getDate();
+    
+    // Criar data de início do mês (1º dia)
+    const startDate = new Date(year, month, 1);
+    const startString = startDate.toISOString().split('T')[0];
+    
+    // Criar data de fim (hoje)
+    const endString = today.toISOString().split('T')[0];
+    
+    console.log('[DashboardPage] getCurrentMonthFilter:', {
+      year,
+      month,
+      day,
+      startString,
+      endString
+    });
+    
+    return {
+      start: startString,
+      end: endString
+    };
+  }, []);
+  
+  const [dateRange, setDateRange] = useState<{ start: string; end: string; } | undefined>(getCurrentMonthFilter());
   const [chartView, setChartView] = useState("month");
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [isDataFresh, setIsDataFresh] = useState(false);
+  const [lastMonthChecked, setLastMonthChecked] = useState(new Date().getMonth());
   
   // Usar o hook SSE para obter dados em tempo real
-  const { stats, isLoading, isConnected, error: sseError, lastUpdate, refreshStats } = useSSEStats() as any;
+  const { stats, isLoading, isConnected, error: sseError, lastUpdate, refreshStats } = useSSEStats(dateRange, autoRefresh) as any;
   
   // Armazenar os dados anteriores para comparar mudanças
   const previousStatsRef = useRef<DashboardStats | null>(null);
@@ -57,7 +139,9 @@ export default function DashboardPage() {
       setIsDataFresh(true);
       
       // Ocultar indicador de dados novos após 3 segundos
-      setTimeout(() => setIsDataFresh(false), 3000);
+      const timeoutId = setTimeout(() => {
+        setIsDataFresh(false);
+      }, 3000);
       
       // Verificar se houve mudanças significativas nos dados
       if (previousStatsRef.current) {
@@ -76,6 +160,9 @@ export default function DashboardPage() {
       if (stats) {
         previousStatsRef.current = stats;
       }
+      
+      // Cleanup do timeout
+      return () => clearTimeout(timeoutId);
     }
   }, [lastUpdate, stats]);
 
@@ -104,143 +191,55 @@ export default function DashboardPage() {
   // Debug dos dados recebidos
   useEffect(() => {
     if (stats) {
-      console.log('[DashboardPage] Dados atualizados recebidos:', stats);
-      console.log('[DashboardPage] Timestamp dos dados:', stats.timestamp);
-      console.log('[DashboardPage] Contadores principais:', {
-        eventos: stats.totalEvents,
-        usuarios: stats.totalUsers,
-        pedidos: stats.totalOrders,
-        receita: stats.totalRevenue,
-        faturamentoPotencial: stats.confirmedOrdersRevenue
-      });
-      
-      // Log detalhado do faturamento
-      console.log('[DashboardPage] DETALHES DE FATURAMENTO:', {
-        totalRevenue: stats.totalRevenue,
-        confirmedOrdersRevenue: stats.confirmedOrdersRevenue,
-        ordersByStatus: stats.ordersByStatus
-      });
-      
-      if (stats.dashboardTotals) {
-        console.log('[DashboardPage] Dashboard totals:', stats.dashboardTotals);
-      }
-      
-      // Detalhar cada evento para debugging
-      if (stats.recentEvents && stats.recentEvents.length > 0) {
-        console.log('[DashboardPage] Total de eventos recentes:', stats.recentEvents.length);
-        stats.recentEvents.forEach((event: any, i: any) => {
-          if (i < 3) { // Limitar log para não sobrecarregar
-            console.log(`[DashboardPage] Evento ${i+1}:`, {
-              id: event.id,
-              title: event.title || 'Sem título',
-              status: event.status || 'Sem status',
-              date: event.createdAt ? new Date(event.createdAt).toISOString() : 'Sem data'
-            });
-          }
-        });
-      } else {
-        console.log('[DashboardPage] ALERTA: Nenhum evento recebido na resposta!');
-      }
-      
-      // Detalhar dados dos pedidos
-      if (stats.recentOrders && stats.recentOrders.length > 0) {
-        console.log('[DashboardPage] SUCESSO! Total de pedidos recentes:', stats.recentOrders.length);
-        console.log('[DashboardPage] TODOS OS PEDIDOS RECEBIDOS:', stats.recentOrders);
-        stats.recentOrders.forEach((order: any, i: any) => {
-          console.log(`[DashboardPage] Pedido ${i+1}:`, {
-            id: order.id,
-            eventId: order.eventId,
-            eventTitle: order.eventTitle || `Evento #${order.eventId}`,
-            status: order.status || 'Sem status',
-            valor: order.totalAmount || 0,
-            convidados: order.guestCount || 0
-          });
-        });
-      } else {
-        console.log('[DashboardPage] ALERTA: Nenhum pedido recebido na resposta!');
-      }
-      
-      // Detalhar estatísticas de status de pedidos
-      if (stats.ordersByStatus) {
-        console.log('[DashboardPage] Estatísticas de status de pedidos:', stats.ordersByStatus);
-      } else {
-        console.log('[DashboardPage] ALERTA: Nenhuma estatística de status de pedidos recebida!');
-      }
-      
-      // Detalhar dados dos gráficos
-      if (stats.eventsPerMonth) {
-        console.log('[DashboardPage] Dados de eventos por mês:', stats.eventsPerMonth);
-      }
-      
-      if (stats.eventCategories) {
-        console.log('[DashboardPage] Dados de categorias de eventos:', stats.eventCategories);
-      }
-    } else {
-      console.log('[DashboardPage] ALERTA: Nenhum dado estatístico recebido!');
+      console.log('[DashboardPage] Total de eventos recentes:', stats.recentEvents.length);
+      console.log('[DashboardPage] SUCESSO! Total de pedidos recentes:', stats.recentOrders.length);
+      console.log('[DashboardPage] TODOS OS PEDIDOS RECEBIDOS:', stats.recentOrders);
+      console.log('[DashboardPage] Estatísticas de status de pedidos:', stats.ordersByStatus);
+      console.log('[DashboardPage] Dados de eventos por mês:', stats.eventsPerMonth);
+      console.log('[DashboardPage] Dados de categorias de eventos:', stats.eventCategories);
     }
   }, [stats]);
 
-  // Manual refresh com feedback visual
-  const handleRefresh = () => {
-    sonnerToast.loading("Atualizando dados em tempo real...");
-    setLastRefresh(new Date());
+  // Adicionar função para checar se o filtro está no padrão (mês atual)
+  const isDefaultDateRange = useCallback(() => {
+    if (!dateRange) return false;
     
-    // Usar o método refreshStats do hook
-    console.log('[DashboardPage] Solicitando atualização de dados pelo hook refreshStats');
+    const currentFilter = getCurrentMonthFilter();
+    return dateRange.start === currentFilter.start && dateRange.end === currentFilter.end;
+  }, [dateRange, getCurrentMonthFilter]);
+
+  // Modificar o handleRefresh para alternar entre SSE e fetch manual
+  const handleRefresh = async () => {
+    // Evitar múltiplas chamadas simultâneas
+    if (isLoading) {
+      console.log('[DashboardPage] Já está carregando, ignorando refresh');
+      return;
+    }
+
+    const toastId = sonnerToast.loading(
+      dateRange && dateRange.start && dateRange.end 
+        ? `${t('admin', 'updatingFilteredData')} (${formatDateDisplay(dateRange.start)} - ${formatDateDisplay(dateRange.end)})...`
+        : `${t('admin', 'updatingAllData')}...`
+    );
     
-    if (typeof refreshStats === 'function') {
-      refreshStats()
-        .then((success: any) => {
-          if (success) {
-            console.log('[DashboardPage] Dados atualizados com sucesso via refreshStats');
-            setIsDataFresh(true);
-            setTimeout(() => setIsDataFresh(false), 3000);
-            sonnerToast.success("Dados atualizados com sucesso");
-          } else {
-            console.error('[DashboardPage] Falha ao atualizar dados via refreshStats');
-            sonnerToast.error("Falha ao atualizar dados");
-          }
-        })
-        .catch((error: any) => {
-          console.error('[DashboardPage] Erro ao atualizar dados via refreshStats:', error);
-          sonnerToast.error("Erro ao atualizar dados", { description: error?.message });
-        });
-    } else {
-      // Fallback para uma chamada direta de API como alternativa
-      console.log('[DashboardPage] refreshStats não disponível, usando fetch direto');
-      
-      fetch(`${getApiBaseUrl()}/api/basic-stats?t=${Date.now()}`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
-      })
-      .then(response => {
-        if (response.ok) {
-          return response.json();
-        } else {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-      })
-      .then(data => {
-        console.log('[DashboardPage] Dados atualizados com sucesso via fetch direto');
+    try {
+      console.log('[DashboardPage] handleRefresh chamado com dateRange:', dateRange);
+      if (refreshStats) {
+        console.log('[DashboardPage] Chamando refreshStats...');
+        await refreshStats();
+        console.log('[DashboardPage] refreshStats concluído');
         
-        // Se o hook está disponível mas refreshStats não, tentar atualizar o estado diretamente
-        if (stats) {
-          console.log('[DashboardPage] Atualizando estado do hook diretamente com dados recebidos');
-          // Aqui precisamos presumir que o hook já configurou o estado corretamente
-          setIsDataFresh(true);
-          setTimeout(() => setIsDataFresh(false), 3000);
-        }
-        
-        sonnerToast.success("Dados atualizados com sucesso");
-      })
-      .catch(error => {
-        console.error('[DashboardPage] Erro ao buscar dados via fetch direto:', error);
-        sonnerToast.error("Erro ao atualizar dados", { description: error.message });
+        const successMessage = dateRange && dateRange.start && dateRange.end 
+          ? t('admin', 'filteredDataUpdated')
+          : t('admin', 'allDataUpdated');
+          
+        sonnerToast.success(successMessage, { id: toastId });
+      }
+    } catch (error: any) {
+      console.error('[DashboardPage] Erro ao atualizar dados via refreshStats:', error);
+      sonnerToast.error(t('admin', 'error'), { 
+        description: t('admin', 'errorDescription'),
+        id: toastId 
       });
     }
   };
@@ -258,24 +257,103 @@ export default function DashboardPage() {
     }
   };
 
+  // Função para limpar filtros
+  const handleClearFilters = useCallback(() => {
+    console.log('[DashboardPage] Limpando filtros...');
+    
+    const toastId = sonnerToast.loading(t('admin', 'clearingFilters'));
+    
+    // Limpar completamente o dateRange
+    setDateRange(undefined);
+    
+    // Aguardar um pouco para garantir que o estado foi atualizado
+    setTimeout(() => {
+      // Atualizar dados após limpar filtros
+      if (refreshStats) {
+        console.log('[DashboardPage] Chamando refreshStats após limpar filtros...');
+        refreshStats().then(() => {
+          console.log('[DashboardPage] refreshStats concluído após limpar filtros');
+          sonnerToast.success(t('admin', 'filtersCleared'), { id: toastId });
+        }).catch((error: Error) => {
+          console.error('[DashboardPage] Erro ao limpar filtros:', error);
+          sonnerToast.error(t('admin', 'errorClearingFilters'), { 
+            description: error.message,
+            id: toastId 
+          });
+        });
+      }
+    }, 100); // Pequeno delay para garantir que o estado foi atualizado
+  }, [refreshStats]);
+
+  // Debug do dateRange
+  useEffect(() => {
+    console.log('[DashboardPage] dateRange atualizado:', dateRange);
+    console.log('[DashboardPage] dateRange.start:', dateRange?.start);
+    console.log('[DashboardPage] dateRange.end:', dateRange?.end);
+    console.log('[DashboardPage] dateRange válido:', !!(dateRange && dateRange?.start && dateRange?.end));
+    console.log('[DashboardPage] dateRange é undefined?', dateRange === undefined);
+    console.log('[DashboardPage] dateRange é null?', dateRange === null);
+    console.log('[DashboardPage] dateRange.start é string vazia?', dateRange?.start === '');
+    console.log('[DashboardPage] dateRange.end é string vazia?', dateRange?.end === '');
+  }, [dateRange]);
+
+  // Verificar se o mês mudou e atualizar o filtro padrão automaticamente
+  useEffect(() => {
+    const checkMonthChange = () => {
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+      
+      // Se o mês mudou desde a última verificação
+      if (currentMonth !== lastMonthChecked) {
+        console.log('[DashboardPage] Mês mudou! Atualizando filtro padrão...');
+        console.log('[DashboardPage] Mês anterior:', lastMonthChecked, 'Mês atual:', currentMonth);
+        
+        // Atualizar o mês verificado
+        setLastMonthChecked(currentMonth);
+        
+        // Se o filtro atual é o padrão (mês atual), atualizar para o novo mês
+        if (isDefaultDateRange()) {
+          const newFilter = getCurrentMonthFilter();
+          console.log('[DashboardPage] Atualizando filtro padrão para:', newFilter);
+          
+          // Notificar o usuário sobre a mudança automática
+          sonnerToast.info(
+            `${t('admin', 'monthChanged')} ${formatMonthName(newFilter.start)}`,
+            { duration: 4000 }
+          );
+          
+          setDateRange(newFilter);
+        }
+      }
+    };
+    
+    // Verificar a cada minuto se o mês mudou
+    const intervalId = setInterval(checkMonthChange, 60000); // 60 segundos
+    
+    // Verificar imediatamente ao montar o componente
+    checkMonthChange();
+    
+    return () => clearInterval(intervalId);
+  }, [lastMonthChecked, isDefaultDateRange]);
+
   return (
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('admin', 'dashboard')}</h1>
           <div className="flex items-center gap-4">
             <div className="flex items-center bg-card rounded-lg shadow-sm p-2 border border-border">
               <Input 
                 type="date" 
                 className="text-sm border-0 focus:ring-0"
-                value={dateRange.start}
-                onChange={(e) => setDateRange({...dateRange, start: e.target.value})}
+                value={dateRange?.start || ''}
+                onChange={(e) => setDateRange({...(dateRange || { start: '', end: ''}), start: e.target.value})}
               />
-              <span className="mx-2 text-muted-foreground">até</span>
+              <span className="mx-2 text-muted-foreground">{t('common', 'to')}</span>
               <Input 
                 type="date" 
                 className="text-sm border-0 focus:ring-0"
-                value={dateRange.end}
-                onChange={(e) => setDateRange({...dateRange, end: e.target.value})}
+                value={dateRange?.end || ''}
+                onChange={(e) => setDateRange({...(dateRange || { start: '', end: ''}), end: e.target.value})}
               />
               <Button 
                 variant="default" 
@@ -283,18 +361,26 @@ export default function DashboardPage() {
                 className="ml-2" 
                 onClick={handleRefresh}
               >
-                Aplicar Filtro
+                {t('admin', 'applyFilter')}
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="ml-2" 
+                onClick={handleClearFilters}
+              >
+                {t('admin', 'clearFilters')}
               </Button>
             </div>
             <Button variant="outline" className="gap-2" size="sm">
               <Download size={16} />
-              Exportar Relatório
+              {t('admin', 'exportReport')}
             </Button>
           </div>
         </div>
 
         {/* Área de status de atualização */}
-        <div className={`mb-6 bg-muted/20 rounded-lg p-2 border transition-all duration-300 ${isDataFresh ? "border-green-400 bg-green-50" : "border-border/30"}`}>
+        <div className={`mb-6 bg-muted/20 rounded-lg p-2 border transition-all duration-300 ${isDataFresh ? "border-green-400 bg-green-50" : !autoRefresh ? "border-yellow-400 bg-yellow-50" : "border-border/30"}`}>
           <div className="flex flex-wrap items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="flex items-center text-xs text-muted-foreground py-1 px-2">
@@ -305,53 +391,71 @@ export default function DashboardPage() {
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                     </span>
                     <span className={`font-medium ${isDataFresh ? "text-green-600" : ""}`}>
-                      {isDataFresh ? "Dados atualizados!" : "Atualizações em tempo real ativas"}
+                      {isDataFresh ? t('admin', 'dataUpdated') : 'Atualizações em tempo real ativas'}
                     </span>
                   </span>
                 ) : (
                   <span className="flex items-center">
                     <span className="relative flex h-2 w-2 mr-2">
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-400"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
                     </span>
-                    <span className="text-red-500">Sem conexão em tempo real</span>
+                    <span className="font-medium text-red-600">
+                      Conexão perdida
+                    </span>
                   </span>
                 )}
               </div>
-              <div className="flex items-center mr-4">
-                {isConnected ? (
-                  <span className="flex items-center text-xs text-muted-foreground">
-                    <Wifi className="h-3 w-3 mr-1 text-green-500" /> Tempo real
-                  </span>
-                ) : (
-                  <span className="flex items-center text-xs text-muted-foreground">
-                    <WifiOff className="h-3 w-3 mr-1 text-red-500" /> Offline
-                  </span>
-                )}
-              </div>
-              <div className="text-xs text-muted-foreground font-mono border-l border-border/50 pl-2">
-                Última atualização: <span className="font-medium">{lastRefresh.toLocaleTimeString()}</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {!autoRefresh && (
-                <Button 
-                  variant="ghost" 
-                  onClick={handleRefresh}
-                  className="h-8 px-2 text-xs"
-                  size="sm"
-                >
-                  <ArrowUp className="h-3 w-3 mr-1" />
-                  Atualizar Agora
-                </Button>
+              {lastUpdate && (
+                <span className="text-xs text-muted-foreground">
+                  Última atualização: {lastUpdate.toLocaleTimeString()}
+                </span>
               )}
+              {!autoRefresh && (
+                <span className="ml-2 px-2 py-1 rounded bg-yellow-100 text-yellow-800 text-xs font-semibold border border-yellow-300">
+                  Atualização automática DESLIGADA
+                </span>
+              )}
+              {/* Indicador de filtro ativo */}
+              {dateRange && dateRange.start && dateRange.end && (
+                <span className={`ml-2 px-2 py-1 rounded text-xs font-semibold border ${
+                  isDefaultDateRange() 
+                    ? 'bg-green-100 text-green-800 border-green-300' 
+                    : 'bg-blue-100 text-blue-800 border-blue-300'
+                }`}>
+                  {isDefaultDateRange() 
+                    ? `${t('admin', 'currentMonth')}: ${formatDateDisplay(dateRange.start)} - ${formatDateDisplay(dateRange.end)}`
+                    : `${t('admin', 'filterActive')}: ${formatDateDisplay(dateRange.start)} - ${formatDateDisplay(dateRange.end)}`
+                  }
+                </span>
+              )}
+              {/* Indicador quando não há filtros (mostrando todos os dados) */}
+              {(!dateRange || !dateRange.start || !dateRange.end) && (
+                <span className="ml-2 px-2 py-1 rounded bg-purple-100 text-purple-800 text-xs font-semibold border border-purple-300">
+                  {t('admin', 'allData')}
+                </span>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-2">
               <Button 
-                variant="ghost"
-                onClick={toggleAutoRefresh}
-                className={`h-8 px-2 text-xs ${autoRefresh ? "text-green-600" : ""}`}
-                size="sm"
+                variant="outline" 
+                size="sm" 
+                onClick={handleRefresh}
+                disabled={isLoading}
+                className="gap-2"
               >
-                <RefreshCw className={`h-3 w-3 mr-1 ${autoRefresh && isConnected ? "animate-spin" : ""}`} />
-                {autoRefresh ? "Desativar" : "Ativar Auto"}
+                <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
+                {t('admin', 'refresh')}
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={toggleAutoRefresh}
+                className={`gap-2 ${autoRefresh ? "bg-green-50 border-green-200" : ""}`}
+              >
+                {autoRefresh ? <Wifi size={14} /> : <WifiOff size={14} />}
+                {autoRefresh ? "Auto" : "Manual"}
               </Button>
             </div>
           </div>
@@ -360,7 +464,7 @@ export default function DashboardPage() {
         {/* Debug info for development */}
         {sseError && (
           <div className="p-4 mb-4 bg-destructive/10 border border-destructive/20 rounded-md">
-            <h3 className="text-destructive font-medium">Erro de conexão:</h3>
+            <h3 className="text-destructive font-medium">{t('admin', 'connectionError')}:</h3>
             <pre className="text-xs mt-2 text-destructive/80 whitespace-pre-wrap">
               {sseError}
             </pre>
@@ -384,55 +488,56 @@ export default function DashboardPage() {
             ))
           ) : stats ? (
             <>
-              {console.log('DEBUG - Dashboard Stats:', {
-                totalRevenue: stats.totalRevenue,
-                confirmedOrdersRevenue: stats.confirmedOrdersRevenue,
-                ordersByStatus: stats.ordersByStatus
-              })}
-              {/* Full stats object for debugging */}
-              {console.log('FULL STATS OBJECT:', JSON.stringify(stats, null, 2))}
-              
               <StatsCard 
-                title="Eventos Pendentes" 
+                title={t('admin', 'pendingEvents')} 
                 value={(stats.ordersByStatus?.pending || 0) + (stats.ordersByStatus?.confirmed || 0)} 
                 icon={<Calendar />} 
                 iconBgColor="bg-primary/10" 
                 iconColor="text-primary" 
-                subtitle="Aguardando entrega"
+                subtitle={t('admin', 'waitingDelivery')}
               />
               <StatsCard 
-                title="Clientes Cadastrados" 
+                title={t('admin', 'registeredClients')} 
                 value={stats.totalUsers || 0} 
                 icon={<Users />} 
                 iconBgColor="bg-blue-500/10" 
                 iconColor="text-blue-500" 
-                subtitle="Apenas usuários com função 'cliente'"
+                subtitle={t('admin', 'onlyClientUsers')}
               />
               <StatsCard 
-                title="Eventos do Mês Atual" 
+                title={t('admin', 'currentMonthEvents')} 
                 value={stats.dashboardTotals?.ordersThisMonth || stats.totalOrders || 0} 
                 icon={<CalendarCheck />} 
                 iconBgColor="bg-green-500/10" 
                 iconColor="text-green-500" 
-                subtitle="Total de pedidos registrados no mês corrente"
+                subtitle={t('admin', 'totalOrdersThisMonth')}
               />
-              
-              {/* Direct Card for Revenue/Faturamento */}
               <StatsCard 
-                title="Faturamento" 
+                title={t('admin', 'revenue')} 
                 value={stats.totalRevenue || 0} 
                 secondaryValue={stats.confirmedOrdersRevenue || 0} 
                 icon={<DollarSign />} 
                 iconBgColor="bg-amber-500/10" 
                 iconColor="text-amber-500" 
-                subtitle="Realizado (concluído) + Potencial (pendente e confirmado)"
+                subtitle={t('admin', 'revenueDescription')}
+                showPotential={(() => {
+                  const shouldShow = !dateRange || !dateRange?.start || !dateRange?.end;
+                  console.log('[DashboardPage] showPotential debug:', {
+                    dateRange,
+                    start: dateRange?.start,
+                    end: dateRange?.end,
+                    shouldShow,
+                    confirmedOrdersRevenue: stats.confirmedOrdersRevenue
+                  });
+                  return shouldShow;
+                })()}
               />
             </>
           ) : (
             <div className="lg:col-span-4 p-8 text-center">
-              <p className="text-muted-foreground">Não foi possível carregar os dados estatísticos.</p>
+              <p className="text-muted-foreground">{t('admin', 'couldNotLoadStats')}</p>
               <Button className="mt-4" onClick={handleRefresh}>
-                Tentar novamente
+                {t('admin', 'tryAgain')}
               </Button>
             </div>
           )}
@@ -442,12 +547,12 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
           <Card className="lg:col-span-2 overflow-hidden border border-border/40 hover:border-border/70 transition-colors">
             <CardHeader className="flex flex-row items-center justify-between pb-2 bg-muted/30">
-              <CardTitle className="text-lg font-medium">Pedidos por Mês</CardTitle>
+              <CardTitle className="text-lg font-medium">{t('admin', 'ordersByMonth')}</CardTitle>
               <Tabs value={chartView} onValueChange={setChartView}>
                 <TabsList className="grid grid-cols-3">
-                  <TabsTrigger value="month">Mês</TabsTrigger>
-                  <TabsTrigger value="quarter">Trimestre</TabsTrigger>
-                  <TabsTrigger value="year">Ano</TabsTrigger>
+                  <TabsTrigger value="month">{t('admin', 'month')}</TabsTrigger>
+                  <TabsTrigger value="quarter">{t('admin', 'quarter')}</TabsTrigger>
+                  <TabsTrigger value="year">{t('admin', 'year')}</TabsTrigger>
                 </TabsList>
               </Tabs>
             </CardHeader>
@@ -468,8 +573,8 @@ export default function DashboardPage() {
                         padding: '8px 12px',
                         backgroundColor: 'rgba(255, 255, 255, 0.95)'
                       }}
-                      formatter={(value, name) => [`${value} pedidos`, 'Quantidade']}
-                      labelFormatter={(label) => `Mês: ${label}`}
+                      formatter={(value, name) => [`${value} ${t('admin', 'orders')}`, t('admin', 'quantity')]}
+                      labelFormatter={(label) => `${t('admin', 'month')}: ${label}`}
                     />
                     <Bar 
                       dataKey="count" 
@@ -487,9 +592,9 @@ export default function DashboardPage() {
               ) : (
                 <div className="h-[300px] flex items-center justify-center">
                   <div className="text-center">
-                    <p className="text-muted-foreground">Não há dados de pedidos por mês para exibir.</p>
+                    <p className="text-muted-foreground">{t('admin', 'noOrdersByMonth')}</p>
                     <Button variant="outline" size="sm" onClick={handleRefresh} className="mt-4">
-                      Atualizar Dados
+                      {t('admin', 'updateData')}
                     </Button>
                   </div>
                 </div>
@@ -499,7 +604,7 @@ export default function DashboardPage() {
 
           <Card className="overflow-hidden border border-border/40 hover:border-border/70 transition-colors">
             <CardHeader className="bg-muted/30">
-              <CardTitle className="text-lg font-medium">Status dos Pedidos</CardTitle>
+              <CardTitle className="text-lg font-medium">{t('admin', 'orderStatus')}</CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
               {isLoading ? (
@@ -517,7 +622,8 @@ export default function DashboardPage() {
                       paddingAngle={5}
                       dataKey="value"
                       nameKey="name"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      label={renderCustomPieLabel}
+                      labelLine={false}
                       animationDuration={1000}
                       animationEasing="ease-in-out"
                     >
@@ -536,7 +642,7 @@ export default function DashboardPage() {
                         padding: '8px 12px',
                         backgroundColor: 'rgba(255, 255, 255, 0.95)'
                       }}
-                      formatter={(value, name, props) => [`${value} pedidos`, props.payload.name]}
+                      formatter={(value, name, props) => [`${value} ${t('admin', 'orders')}`, props.payload.name]}
                     />
                     <Legend 
                       layout="horizontal" 
@@ -551,9 +657,9 @@ export default function DashboardPage() {
                 </ResponsiveContainer>
               ) : (
                 <div className="h-[300px] flex flex-col items-center justify-center">
-                  <p className="text-muted-foreground">Não há dados de status de pedidos para exibir.</p>
+                  <p className="text-muted-foreground">{t('admin', 'noOrderStatusData')}</p>
                   <Button variant="outline" size="sm" onClick={handleRefresh} className="mt-4">
-                    Atualizar Dados
+                    {t('admin', 'updateData')}
                   </Button>
                 </div>
               )}
@@ -565,19 +671,19 @@ export default function DashboardPage() {
         <div className="mb-8">
           <Card className="overflow-hidden border border-border/40 hover:border-border/70 transition-colors">
             <CardHeader className="flex flex-row items-center justify-between pb-2 bg-muted/30">
-              <CardTitle className="text-lg font-medium">Todos os Pedidos ({stats?.recentOrders?.length || 0})</CardTitle>
-                    <div className="flex items-center gap-2">
+              <CardTitle className="text-lg font-medium">{t('admin', 'allOrders')} ({stats?.recentOrders?.length || 0})</CardTitle>
+              <div className="flex items-center gap-2">
                 {stats?.ordersByStatus && (
                   <>
                     <span className="px-2 py-1 text-xs rounded-full bg-amber-100 text-amber-800 font-medium">
-                      Pendentes: {stats.ordersByStatus.pending}
+                      {t('admin', 'pending')}: {stats.ordersByStatus.pending}
                     </span>
                     <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 font-medium">
-                      Confirmados: {stats.ordersByStatus.confirmed}
-                        </span>
+                      {t('admin', 'confirmed')}: {stats.ordersByStatus.confirmed}
+                    </span>
                     <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 font-medium">
-                      Total: {stats.ordersByStatus.total}
-                      </span>
+                      {t('admin', 'total')}: {stats.ordersByStatus.total}
+                    </span>
                   </>
                 )}
                 <Button
@@ -586,21 +692,16 @@ export default function DashboardPage() {
                   onClick={handleRefresh}
                   className="ml-2"
                 >
-                  Atualizar Tabela
+                  {t('admin', 'updateTable')}
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              {/* Debug info para identificar problema */}
-              {console.log(`[DashboardPage] Enviando ${stats?.recentOrders?.length || 0} pedidos para a tabela`)}
-              {stats?.recentOrders && console.log('[DashboardPage] Pedidos disponíveis:', JSON.stringify(stats.recentOrders).substring(0, 500) + '...')}
-              
-              {/* Verificação adicional para garantir que temos pedidos */}
               {(!stats?.recentOrders || stats.recentOrders.length === 0) && (
                 <div className="p-8 text-center bg-amber-50">
-                  <p className="text-amber-700 font-medium">Atenção: Não há pedidos para exibir</p>
+                  <p className="text-amber-700 font-medium">{t('admin', 'noOrdersToDisplay')}</p>
                   <p className="text-xs text-amber-600 mt-1">
-                    O backend está retornando array vazio ou nulo para pedidos.
+                    {t('admin', 'backendEmptyOrders')}
                   </p>
                   <Button 
                     variant="default" 
@@ -608,17 +709,17 @@ export default function DashboardPage() {
                     onClick={handleRefresh}
                     className="mt-4 bg-amber-500 hover:bg-amber-600"
                   >
-                    Tentar Novamente
+                    {t('admin', 'tryAgain')}
                   </Button>
-              </div>
-            )}
+                </div>
+              )}
               
               <RecentOrdersTable 
                 orders={stats?.recentOrders || []} 
                 isLoading={isLoading} 
               />
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
         </div>
       </main>
   );

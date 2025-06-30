@@ -24,15 +24,15 @@ export type DashboardStats = {
     completed: number;
     total: number;
   };
-  eventsPerMonth: { month: string; count: number }[];
-  eventCategories: { name: string; value: number }[]; // Nota: utiliza 'value' para compatibilidade com PieChart
+  eventsPerMonth: any[];
+  eventCategories: any[];
   dateFilter?: { startDate: string; endDate: string };
-  dashboardTotals?: {
+  dashboardTotals: {
     ordersThisMonth: number;
     confirmedRevenue: number;
   };
   timestamp: string;
-  generatedAt?: string;
+  generatedAt: string;
   error?: string;
 };
 
@@ -42,305 +42,363 @@ type SSEStatsHook = {
   isConnected: boolean;
   error: string | null;
   lastUpdate: Date | null;
-  refresh: () => void;
   refreshStats: () => Promise<boolean>;
 };
+
+// Classe para gerenciar fila de requisições
+class RequestQueue {
+  private queue: Array<() => Promise<any>> = [];
+  private processing = false;
+  private lastRequestTime = 0;
+  private minInterval = 1000; // 1 segundo entre requisições
+
+  async add<T>(request: () => Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      this.queue.push(async () => {
+        try {
+          const result = await request();
+          resolve(result);
+        } catch (error) {
+          reject(error);
+        }
+      });
+      this.processQueue();
+    });
+  }
+
+  private async processQueue() {
+    if (this.processing || this.queue.length === 0) {
+      return;
+    }
+
+    this.processing = true;
+
+    while (this.queue.length > 0) {
+      const now = Date.now();
+      const timeSinceLastRequest = now - this.lastRequestTime;
+      
+      if (timeSinceLastRequest < this.minInterval) {
+        await new Promise(resolve => 
+          setTimeout(resolve, this.minInterval - timeSinceLastRequest)
+        );
+      }
+
+      const request = this.queue.shift();
+      if (request) {
+        this.lastRequestTime = now;
+        await request();
+      }
+    }
+
+    this.processing = false;
+  }
+}
 
 /**
  * Hook para consumir dados estatísticos em tempo real via SSE
  * @returns Dados estatísticos e status da conexão
  */
-export function useSSEStats(): SSEStatsHook {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isConnected, setIsConnected] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+export function useSSEStats(dateRange?: { start: string; end: string }, autoRefresh: boolean = true): SSEStatsHook {
+  console.log('[SSE] Hook chamado com dateRange:', dateRange);
+  console.log('[SSE] dateRange.start:', dateRange?.start);
+  console.log('[SSE] dateRange.end:', dateRange?.end);
+  console.log('[SSE] dateRange é undefined?', dateRange === undefined);
+  console.log('[SSE] dateRange.start existe?', !!(dateRange && dateRange.start));
+  console.log('[SSE] dateRange.end existe?', !!(dateRange && dateRange.end));
   
-  // Referência para o EventSource
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
-  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const connectionAttemptsRef = useRef<number>(0);
-  const maxConnectionAttempts = 5;
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  const reconnectAttemptsRef = useRef(0);
+  const maxReconnectAttempts = 5;
+  const isInitialLoadRef = useRef(true);
+  const refreshInProgressRef = useRef(false);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout>();
+  const requestQueueRef = useRef(new RequestQueue());
 
-  // Função para criar a conexão SSE
-  const connectToSSE = () => {
+  // Função para processar os dados recebidos
+  const processStatsData = useCallback((data: any): DashboardStats => {
+    return {
+      ...data,
+      timestamp: data.timestamp || new Date().toISOString(),
+      generatedAt: data.generatedAt || new Date().toISOString()
+    };
+  }, []);
+
+  // Função para conectar ao SSE
+  const connectToSSE = useCallback(() => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+
+    // Montar a URL com os filtros de data, se existirem
+    let apiUrl = `${getApiBaseUrl()}/api/stats-stream`;
+    console.log('[SSE] URL base:', apiUrl);
+    console.log('[SSE] dateRange para URL:', dateRange);
+    console.log('[SSE] dateRange.start para URL:', dateRange?.start);
+    console.log('[SSE] dateRange.end para URL:', dateRange?.end);
+    console.log('[SSE] Condição para adicionar filtros:', !!(dateRange && dateRange.start && dateRange.end));
+    
+    if (dateRange && dateRange.start && dateRange.end) {
+      apiUrl += `?start=${encodeURIComponent(dateRange.start)}&end=${encodeURIComponent(dateRange.end)}`;
+      console.log('[SSE] Filtros adicionados à URL');
+    } else {
+      console.log('[SSE] Nenhum filtro adicionado à URL');
+    }
+    console.log('[SSE] URL final:', apiUrl);
+
+    let loadingTimeout: NodeJS.Timeout | null = null;
+
     try {
-      console.log("[SSE] Iniciando conexão com servidor de eventos...");
-      connectionAttemptsRef.current++;
+      const eventSource = new EventSource(apiUrl, {
+        withCredentials: true
+      });
+      eventSourceRef.current = eventSource;
       
-      // Limpar conexão existente, se houver
+      eventSource.onopen = () => {
+        console.log('[SSE] Conexão estabelecida com sucesso');
+        setIsConnected(true);
+        setIsLoading(false);
+        setError(null);
+        reconnectAttemptsRef.current = 0;
+        // Timeout para garantir que loading não fique eterno
+        loadingTimeout = setTimeout(() => {
+          setIsLoading(false);
+        }, 5000);
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          if (loadingTimeout) clearTimeout(loadingTimeout);
+          console.log('[SSE] Mensagem recebida:', event.data);
+          const data = JSON.parse(event.data);
+          console.log('[SSE] Dados processados:', data);
+          console.log('[SSE] DEBUG - Total de pedidos recebidos:', data.totalOrders);
+          console.log('[SSE] DEBUG - Pedidos recentes recebidos:', data.recentOrders?.length || 0);
+          console.log('[SSE] DEBUG - IDs dos pedidos:', data.recentOrders?.map((o: any) => o.id) || []);
+          console.log('[SSE] DEBUG - DateRange atual:', dateRange);
+          setStats(processStatsData(data));
+          setLastUpdate(new Date());
+          setIsLoading(false);
+        } catch (err) {
+          console.error('[SSE] Erro ao processar mensagem:', err);
+          console.error('[SSE] Dados da mensagem:', event.data);
+          setError('Erro ao processar dados recebidos');
+        }
+      };
+
+      eventSource.onerror = (err) => {
+        console.error('[SSE] Erro na conexão SSE:', err);
+        console.error('[SSE] Estado da conexão:', eventSource.readyState);
+        setIsConnected(false);
+        setError('Erro na conexão com o servidor');
+        
+        // Tentar reconectar com backoff exponencial
+        if (reconnectAttemptsRef.current < maxReconnectAttempts) {
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
+          reconnectAttemptsRef.current++;
+          
+          if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+          }
+          
+          reconnectTimeoutRef.current = setTimeout(() => {
+            console.log(`[SSE] Tentando reconectar (tentativa ${reconnectAttemptsRef.current}/${maxReconnectAttempts})...`);
+            connectToSSE();
+          }, delay);
+        } else {
+          console.error('[SSE] Máximo de tentativas de reconexão atingido');
+          sonnerToast.error('Falha na conexão em tempo real', {
+            description: 'Não foi possível estabelecer conexão com o servidor. Tente recarregar a página.'
+          });
+        }
+      };
+    } catch (err) {
+      console.error('[SSE] Erro ao criar EventSource:', err);
+      setError('Erro ao criar conexão com o servidor');
+    }
+
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+      }
+    };
+  }, [processStatsData, dateRange]);
+
+  // Função para fazer a requisição HTTP
+  const makeRequest = useCallback(async (): Promise<boolean> => {
+    let url = `${getApiBaseUrl()}/api/basic-stats?t=${Date.now()}`;
+    console.log('[SSE] URL base para fetch:', url);
+    console.log('[SSE] dateRange para fetch:', dateRange);
+    console.log('[SSE] dateRange.start para fetch:', dateRange?.start);
+    console.log('[SSE] dateRange.end para fetch:', dateRange?.end);
+    console.log('[SSE] Condição para adicionar filtros no fetch:', !!(dateRange && dateRange.start && dateRange.end));
+    
+    if (dateRange && dateRange.start && dateRange.end) {
+      url += `&start=${encodeURIComponent(dateRange.start)}&end=${encodeURIComponent(dateRange.end)}`;
+      console.log('[SSE] Filtros adicionados à URL do fetch');
+    } else {
+      console.log('[SSE] Nenhum filtro adicionado à URL do fetch');
+    }
+    console.log('[SSE] URL final do fetch:', url);
+    
+    console.log('[SSE] Iniciando fetch...');
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+      // Adicionar timeout para evitar requisições pendentes
+      signal: AbortSignal.timeout(30000) // 30 segundos de timeout
+    });
+    
+    console.log('[SSE] Response status:', response.status);
+    console.log('[SSE] Response ok:', response.ok);
+    
+    if (!response.ok) {
+      throw new Error(`Erro HTTP: ${response.status}`);
+    }
+    
+    console.log('[SSE] Fazendo parse da resposta...');
+    const data = await response.json();
+    console.log('[SSE] Dados atualizados recebidos via fetch direto:', data);
+    console.log('[SSE] DEBUG - Total de pedidos recebidos via fetch:', data.totalOrders);
+    console.log('[SSE] DEBUG - Pedidos recentes recebidos via fetch:', data.recentOrders?.length || 0);
+    console.log('[SSE] DEBUG - IDs dos pedidos via fetch:', data.recentOrders?.map((o: any) => o.id) || []);
+    console.log('[SSE] DEBUG - DateRange atual via fetch:', dateRange);
+    
+    console.log('[SSE] Processando dados...');
+    const processedStats = processStatsData(data);
+    console.log('[SSE] Dados processados:', processedStats);
+    
+    console.log('[SSE] Atualizando estado...');
+    setStats(processedStats);
+    setLastUpdate(new Date());
+    setIsLoading(false);
+    
+    console.log('[SSE] refreshStats concluído com sucesso');
+    return true;
+  }, [processStatsData, dateRange]);
+
+  // Função para forçar uma atualização completa com fila
+  const refreshStats = useCallback(async (): Promise<boolean> => {
+    // Verificar se já há uma requisição em andamento
+    if (refreshInProgressRef.current) {
+      console.log('[SSE] Refresh já em andamento, ignorando chamada');
+      return false;
+    }
+
+    // Limpar timeout de debounce anterior
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    // Implementar debouncing para evitar múltiplas chamadas
+    return new Promise((resolve) => {
+      debounceTimeoutRef.current = setTimeout(async () => {
+        refreshInProgressRef.current = true;
+        setIsLoading(true);
+        
+        try {
+          console.log('[SSE] Executando refreshStats para atualização forçada');
+          
+          // Usar a fila de requisições para evitar sobrecarga
+          const result = await requestQueueRef.current.add(makeRequest);
+          resolve(result);
+        } catch (err) {
+          console.error('[SSE] Erro ao atualizar dados:', err);
+          setError(`Erro ao atualizar: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+          setIsLoading(false);
+          resolve(false);
+        } finally {
+          refreshInProgressRef.current = false;
+        }
+      }, 300); // Debounce de 300ms
+    });
+  }, [makeRequest]);
+  
+  // Adicionar um timeout de segurança para garantir que loading seja sempre limpo
+  useEffect(() => {
+    if (isLoading) {
+      const safetyTimeout = setTimeout(() => {
+        console.warn('[SSE] Timeout de segurança: limpando loading após 10 segundos');
+        setIsLoading(false);
+        refreshInProgressRef.current = false;
+      }, 10000);
+      
+      return () => clearTimeout(safetyTimeout);
+    }
+  }, [isLoading]);
+
+  // Iniciar conexão SSE ao montar componente
+  useEffect(() => {
+    console.log('[SSE] useEffect de inicialização executado');
+    console.log('[SSE] autoRefresh:', autoRefresh);
+    
+    // Fazer carregamento inicial via fetch apenas na primeira vez
+    if (isInitialLoadRef.current) {
+      console.log('[SSE] Fazendo carregamento inicial via fetch...');
+      refreshStats().then(success => {
+        console.log('[SSE] Carregamento inicial concluído:', success);
+        isInitialLoadRef.current = false;
+      }).catch(error => {
+        console.error('[SSE] Erro no carregamento inicial:', error);
+        isInitialLoadRef.current = false;
+      });
+    }
+    
+    if (autoRefresh) {
+      console.log('[SSE] Iniciando conexão SSE...');
+      const cleanup = connectToSSE();
+      return cleanup;
+    } else {
+      console.log('[SSE] Auto-refresh desabilitado, não conectando ao SSE');
+      // Se autoRefresh for false, fechar SSE se estiver aberto
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
       }
-      
-      // Criar nova conexão
-      const url = `${getApiBaseUrl()}/api/dashboard-updates`;
-      const eventSource = new EventSource(url, { withCredentials: true });
-      eventSourceRef.current = eventSource;
-      
-      // Configurar listeners
-      eventSource.addEventListener('connected', handleConnected);
-      eventSource.addEventListener('stats-update', handleStatsUpdate);
-      eventSource.addEventListener('error', handleError);
-      
-      return () => {
-        console.log("[SSE] Limpando conexão SSE...");
-        if (eventSourceRef.current) {
-          eventSource.removeEventListener('connected', handleConnected);
-          eventSource.removeEventListener('stats-update', handleStatsUpdate);
-          eventSource.removeEventListener('error', handleError);
-          eventSourceRef.current.close();
-          eventSourceRef.current = null;
-        }
-        
-        if (retryTimeoutRef.current) {
-          clearTimeout(retryTimeoutRef.current);
-          retryTimeoutRef.current = null;
-        }
-      };
-    } catch (err) {
-      console.error("[SSE] Erro ao configurar conexão:", err);
-      setError(`Erro ao conectar: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
       setIsConnected(false);
-      retryConnection();
-      return () => {};
     }
-  };
-  
-  // Handler para evento de conexão estabelecida
-  const handleConnected = (event: MessageEvent) => {
-    try {
-      const data = JSON.parse(event.data);
-      console.log(`[SSE] Conectado ao servidor de eventos: ${data.clientId}`);
-      setIsConnected(true);
-      setError(null);
-      connectionAttemptsRef.current = 0; // Resetar contador de tentativas
-      
-      // Não precisamos fazer fetch inicial pois receberemos dados logo em seguida
-    } catch (err) {
-      console.error("[SSE] Erro ao processar evento de conexão:", err);
-    }
-  };
-  
-  // Handler para atualização de estatísticas
-  const handleStatsUpdate = (event: MessageEvent) => {
-    try {
-      const data = JSON.parse(event.data);
-      console.log("[SSE] Atualização de dados recebida:", data);
-      
-      // Log detalhado sobre pedidos para diagnóstico
-      console.log("[SSE] Detalhes de pedidos recebidos:", {
-        recentOrdersExiste: !!data.recentOrders,
-        recentOrdersLength: data.recentOrders?.length || 0,
-        recentOrdersAmostra: data.recentOrders?.slice(0, 2) || []
-      });
-      
-      // Se não houver pedidos, tentar recuperar pedidos garantidos
-      if (!data.recentOrders || data.recentOrders.length === 0) {
-        console.warn("[SSE] ALERTA: Nenhum pedido recebido na atualização SSE");
-        
-        // Fazer chamada direta para API para obter pedidos garantidos
-        fetch(`${getApiBaseUrl()}/api/orders?forceGuaranteed=true`, {
-          credentials: 'include',
-          headers: {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
-          }
-        })
-        .then(response => response.json())
-        .then(orders => {
-          console.log("[SSE] Pedidos garantidos recuperados via API auxiliar:", orders.length);
-          
-          // Processar os dados com pedidos garantidos agora
-          processStatsData({
-            ...data,
-            recentOrders: orders
-          });
-        })
-        .catch(err => {
-          console.error("[SSE] Falha ao recuperar pedidos garantidos:", err);
-          // Mesmo com erro, continuar com os dados disponíveis
-          processStatsData(data);
-        });
-      } else {
-        // Continuar com o processamento normal se já temos pedidos
-        processStatsData(data);
-      }
-    } catch (err) {
-      console.error("[SSE] Erro ao processar atualização de estatísticas:", err);
-      setError(`Erro ao processar dados: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
-    }
-  };
-  
-  // Função auxiliar para processar dados de estatísticas
-  const processStatsData = (data: any) => {
-    // Garantir que recentOrders seja sempre um array
-    const recentOrders = Array.isArray(data.recentOrders) ? data.recentOrders : [];
-    
-    console.log("[SSE] Processando dados de estatísticas com", recentOrders.length, "pedidos");
+  }, [connectToSSE, autoRefresh]); // Remover refreshStats das dependências
 
-    // Garantir que os valores financeiros sejam números
-    const totalRevenue = typeof data.totalRevenue === 'string' 
-      ? parseFloat(data.totalRevenue.replace(/[^\d.-]/g, '')) || 0 
-      : Number(data.totalRevenue || 0);
-      
-    const confirmedOrdersRevenue = typeof data.confirmedOrdersRevenue === 'string' 
-      ? parseFloat(data.confirmedOrdersRevenue.replace(/[^\d.-]/g, '')) || 0 
-      : Number(data.confirmedOrdersRevenue || 0);
-    
-    console.log("[SSE] Processando valores financeiros:", {
-      originalTotal: data.totalRevenue,
-      parsedTotal: totalRevenue,
-      originalPotential: data.confirmedOrdersRevenue,
-      parsedPotential: confirmedOrdersRevenue
-    });
-    
-    // Normalizar os dados para garantir que todos os campos existam
-    const statsData: DashboardStats = {
-      totalEvents: data.totalEvents ?? 0,
-      totalUsers: data.totalUsers ?? 0,
-      totalOrders: data.totalOrders ?? 0,
-      totalRevenue: totalRevenue,
-      confirmedOrdersRevenue: confirmedOrdersRevenue,
-      recentEvents: data.recentEvents || [],
-      recentOrders: recentOrders, // Usar pedidos processados
-      ordersByStatus: data.ordersByStatus || {
-        pending: 0,
-        confirmed: 0,
-        completed: 0,
-        total: 0
-      },
-      eventsPerMonth: data.eventsPerMonth || [],
-      eventCategories: Array.isArray(data.eventCategories) 
-        ? data.eventCategories.map((cat: EventCategory) => ({
-            name: cat.name,
-            value: typeof cat.value !== 'undefined' ? cat.value : (cat.count || 0)
-          }))
-        : [],
-      timestamp: data.timestamp || new Date().toISOString(),
-      dashboardTotals: data.dashboardTotals || {
-        ordersThisMonth: data.totalOrders || 0,
-        confirmedRevenue: data.totalRevenue || 0
-      },
-      generatedAt: data.generatedAt || new Date().toISOString()
-    };
-    
-    // Verificação final para debug
-    if (!statsData.recentOrders || statsData.recentOrders.length === 0) {
-      console.warn("[SSE] ALERTA FINAL: Ainda sem pedidos após processamento!");
-    } else {
-      console.log("[SSE] SUCESSO: Dados processados com", statsData.recentOrders.length, "pedidos");
-      console.log("[SSE] Exemplo de pedido processado:", statsData.recentOrders[0]);
-    }
-    
-    setStats(statsData);
-    setLastUpdate(new Date());
-    setIsLoading(false);
-  };
-  
-  // Handler para erros de conexão
-  const handleError = (event: Event) => {
-    console.error("[SSE] Erro na conexão SSE:", event);
-    setIsConnected(false);
-    
-    // Tentativa de reconexão com backoff exponencial
-    retryConnection();
-  };
-  
-  // Função para tentar reconexão com backoff exponencial
-  const retryConnection = () => {
-    if (retryTimeoutRef.current) {
-      clearTimeout(retryTimeoutRef.current);
-    }
-    
-    // Se excedeu o número máximo de tentativas, parar
-    if (connectionAttemptsRef.current >= maxConnectionAttempts) {
-      setError("Número máximo de tentativas de conexão excedido. Tente recarregar a página.");
-      return;
-    }
-    
-    // Calcular tempo de espera com backoff exponencial (1s, 2s, 4s, 8s, 16s)
-    const delay = Math.min(1000 * Math.pow(2, connectionAttemptsRef.current - 1), 16000);
-    
-    console.log(`[SSE] Tentando reconectar em ${delay}ms (tentativa ${connectionAttemptsRef.current}/${maxConnectionAttempts})`);
-    
-    retryTimeoutRef.current = setTimeout(() => {
-      console.log("[SSE] Tentando reconectar...");
-      const cleanup = connectToSSE();
-      return () => cleanup();
-    }, delay);
-  };
-  
-  // Função para solicitar atualização manual (refresh)
-  const refresh = () => {
-    console.log("[SSE] Solicitando atualização manual");
-    
-    fetch(`${getApiBaseUrl()}/api/trigger-update`, {
-      method: 'POST',
-      credentials: 'include'
-    })
-    .then(response => {
-      if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
-      return response.json();
-    })
-    .then(data => {
-      console.log("[SSE] Atualização manual solicitada com sucesso:", data);
-      sonnerToast.success("Atualizando dados em tempo real...");
-    })
-    .catch(err => {
-      console.error("[SSE] Erro ao solicitar atualização manual:", err);
-      sonnerToast.error("Falha ao solicitar atualização", { 
-        description: err.message || "Tente novamente em alguns instantes"
-      });
-    });
-  };
-
-  // Função para forçar uma atualização completa - compatível com dashboard-page.tsx
-  const refreshStats = useCallback(async (): Promise<boolean> => {
-    console.log('[SSE] Executando refreshStats para atualização forçada');
-    setIsLoading(true);
-    
-    try {
-      // Forçar uma atualização dos dados
-      const response = await fetch(`${getApiBaseUrl()}/api/basic-stats?t=${Date.now()}`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Erro HTTP: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log('[SSE] Dados atualizados recebidos via fetch direto:', data);
-      
-      // Processar os dados recebidos
-      processStatsData(data);
-      setLastUpdate(new Date());
-      
-      return true;
-    } catch (err) {
-      console.error('[SSE] Erro ao atualizar dados:', err);
-      setError(`Erro ao atualizar: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
-      setIsLoading(false);
-      return false;
-    }
-  }, []);
-  
-  // Iniciar conexão SSE ao montar componente
+  // Efeito separado para reagir às mudanças no dateRange com debouncing
   useEffect(() => {
-    setIsLoading(true);
-    const cleanup = connectToSSE();
-    
-    // Limpar conexão ao desmontar componente
-    return cleanup;
+    if (autoRefresh && eventSourceRef.current && !isInitialLoadRef.current) {
+      // Debounce para reconexão SSE
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+      
+      debounceTimeoutRef.current = setTimeout(() => {
+        console.log('[SSE] DateRange mudou, reconectando SSE...');
+        const cleanup = connectToSSE();
+        return cleanup;
+      }, 500); // Debounce de 500ms para mudanças de dateRange
+    }
+  }, [dateRange, connectToSSE, autoRefresh]);
+
+  // Cleanup ao desmontar
+  useEffect(() => {
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+    };
   }, []);
   
   return {
@@ -349,7 +407,6 @@ export function useSSEStats(): SSEStatsHook {
     isConnected,
     error,
     lastUpdate,
-    refresh,
     refreshStats
   };
 } 

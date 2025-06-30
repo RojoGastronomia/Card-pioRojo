@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boleto Enviado com Sucesso</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #28a745;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+            color: white;
+        }
+        .content {
+            background-color: #ffffff;
+            padding: 30px;
+            border: 1px solid #e9ecef;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            border-radius: 0 0 8px 8px;
+            font-size: 14px;
+            color: #6c757d;
+        }
+        .success-info {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .success-info h3 {
+            color: #155724;
+            margin-top: 0;
+        }
+        .order-details {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .order-details h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .order-details p {
+            margin: 8px 0;
+        }
+        .customer-info {
+            background-color: #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .status-update {
+            background-color: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .status-update h3 {
+            color: #1976d2;
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>✅ Boleto Enviado com Sucesso</h1>
+        <p>O boleto foi enviado para o cliente</p>
+    </div>
+
+    <div class="content">
+        <div class="success-info">
+            <h3>🎉 Confirmação de Entrega</h3>
+            <p><strong>O boleto para o pedido #{{orderId}} foi enviado com sucesso para o cliente.</strong></p>
+            <p>O cliente recebeu o email com o boleto anexado e pode acessá-lo através do sistema.</p>
+        </div>
+
+        <div class="status-update">
+            <h3>📊 Status Atualizado</h3>
+            <p>O status do pedido foi automaticamente alterado para <strong>"Aguardando Pagamento"</strong>.</p>
+            <p>O sistema irá monitorar o pagamento e você será notificado quando for confirmado.</p>
+        </div>
+
+        <div class="order-details">
+            <h3>📋 Detalhes do Pedido #{{orderId}}</h3>
+            <p><strong>Evento:</strong> {{eventName}}</p>
+            <p><strong>Data do Evento:</strong> {{eventDate}}</p>
+            <p><strong>Valor Total:</strong> R$ {{totalAmount}}</p>
+            <p><strong>Data de Envio do Boleto:</strong> {{boletoSentDate}}</p>
+        </div>
+
+        <div class="customer-info">
+            <h3>👤 Cliente Notificado</h3>
+            <p><strong>Nome:</strong> {{customerName}}</p>
+            <p><strong>Email:</strong> {{customerEmail}}</p>
+            <p><strong>Status do Email:</strong> <span style="color: #28a745;">✅ Enviado com sucesso</span></p>
+        </div>
+
+        <div class="status-update">
+            <h3>📅 Próximos Passos</h3>
+            <ul>
+                <li>O cliente tem até <strong>3 dias úteis</strong> para realizar o pagamento</li>
+                <li>Após o pagamento, pode levar até <strong>3 dias úteis</strong> para confirmação bancária</li>
+                <li>O sistema irá notificar automaticamente quando o pagamento for confirmado</li>
+                <li>Você pode acompanhar o status do pedido no painel administrativo</li>
+            </ul>
+        </div>
+
+        <p><strong>Observação:</strong> Se o cliente não receber o email, verifique se o endereço está correto e, se necessário, reenvie o boleto através do painel administrativo.</p>
+    </div>
+
+    <div class="footer">
+        <p>Este é um email automático do sistema SiteCard.</p>
+        <p>Em caso de dúvidas, entre em contato com o suporte técnico.</p>
+        <p>© 2024 Rojo Gastronomia. Todos os direitos reservados.</p>
+    </div>
+</body>
+</html> 

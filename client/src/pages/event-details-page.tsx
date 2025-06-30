@@ -26,6 +26,7 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { useCart } from "@/context/cart-context";
 import { useAuth } from "@/hooks/use-auth";
+import { useLanguage } from "@/context/language-context";
 
 // Função imperativa para criar o modal fora do React
 function showImperativeLoginModal(onLogin: () => void) {
@@ -61,14 +62,14 @@ function showImperativeLoginModal(onLogin: () => void) {
 
   // Título
   const title = document.createElement('h2');
-  title.textContent = 'Login Necessário';
+  title.textContent = t('eventDetails', 'loginRequired');
   title.style.fontSize = '20px';
   title.style.fontWeight = 'bold';
   title.style.marginBottom = '16px';
 
   // Mensagem
   const message = document.createElement('p');
-  message.textContent = 'Para adicionar ao carrinho, faça login na sua conta.';
+  message.textContent = t('eventDetails', 'loginToAddToCart');
   message.style.marginBottom = '16px';
 
   // Container para botões
@@ -79,7 +80,7 @@ function showImperativeLoginModal(onLogin: () => void) {
 
   // Botão cancelar
   const cancelButton = document.createElement('button');
-  cancelButton.textContent = 'Cancelar';
+  cancelButton.textContent = t('common', 'cancel');
   cancelButton.style.padding = '8px 16px';
   cancelButton.style.border = '1px solid #d1d5db';
   cancelButton.style.borderRadius = '6px';
@@ -90,7 +91,7 @@ function showImperativeLoginModal(onLogin: () => void) {
 
   // Botão login
   const loginButton = document.createElement('button');
-  loginButton.textContent = 'Ir para Login';
+  loginButton.textContent = t('eventDetails', 'goToLogin');
   loginButton.style.padding = '8px 16px';
   loginButton.style.backgroundColor = '#2563eb';
   loginButton.style.color = 'white';
@@ -119,6 +120,7 @@ export default function EventDetailsPage() {
   const { toast } = useToast();
   const { addToCart } = useCart();
   const { isAuthenticated } = useAuth();
+  const { t, language } = useLanguage();
   
   // Log do estado de autenticação quando o componente é montado
   useEffect(() => {
@@ -193,9 +195,14 @@ export default function EventDetailsPage() {
   
   // Fetch event details
   const { data: event, isLoading: eventLoading } = useQuery<Event>({
-    queryKey: ["/api/events", eventId],
+    queryKey: ["/api/events", eventId, language],
     enabled: !!eventId,
     retry: false,
+    queryFn: async () => {
+      const response = await fetch(`/api/events/${eventId}?lang=${language}`);
+      if (!response.ok) throw new Error("Failed to fetch event");
+      return response.json();
+    },
     onError: (error: Error) => {
       toast({
         title: "Error loading event",
@@ -207,9 +214,14 @@ export default function EventDetailsPage() {
   
   // Fetch menus for this event
   const { data: menus, isLoading: menusLoading } = useQuery<Menu[]>({
-    queryKey: ["/api/events", eventId, "menus"],
+    queryKey: ["/api/events", eventId, "menus", language],
     enabled: !!eventId,
     retry: false,
+    queryFn: async () => {
+      const response = await fetch(`/api/events/${eventId}/menus?lang=${language}`);
+      if (!response.ok) throw new Error("Failed to fetch menus");
+      return response.json();
+    },
     onError: (error: Error) => {
       toast({
         title: "Error loading menus",
@@ -221,9 +233,14 @@ export default function EventDetailsPage() {
 
   // Fetch dishes for selected menu
   const { data: dishes, isLoading: dishesLoading } = useQuery<Dish[]>({
-    queryKey: ["/api/menus", selectedMenuId, "dishes"],
+    queryKey: ["/api/menus", selectedMenuId, "dishes", language],
     enabled: !!selectedMenuId,
     retry: false,
+    queryFn: async () => {
+      const response = await fetch(`/api/menus/${selectedMenuId}/dishes?lang=${language}`);
+      if (!response.ok) throw new Error("Failed to fetch dishes");
+      return response.json();
+    },
     onError: (error: Error) => {
       toast({
         title: "Error loading dishes",
@@ -258,17 +275,15 @@ export default function EventDetailsPage() {
     return eventDate && guestCount > 0 && selectedMenuId;
   };
   
-  const handleAddToCart = () => {
-    console.log("DEBUG guestCount:", guestCount);
-    console.log("DEBUG waiterFee calculado:", calculateWaiterFee());
+  const handleAddToCart = async () => {
     console.log("🛒 Função handleAddToCart chamada");
     
     // Verificar dados básicos
-    if (!event || !selectedMenu || !eventDate) {
+    if (!isFormValid()) {
       toast({
-        title: "Erro",
-        description: "Selecione todas as opções necessárias",
-        variant: "destructive",
+        title: t('eventDetails', 'fixErrors'),
+        description: t('eventDetails', 'selectMenuToContinue'),
+        variant: "destructive"
       });
       return;
     }
@@ -280,7 +295,7 @@ export default function EventDetailsPage() {
       console.log("👤 Usuário não autenticado - redirecionando para login");
       
       // Salvar item pendente
-      if (event && selectedMenu) {
+      if (event && selectedMenu && eventDate) {
         const pendingItem = {
           id: Date.now(),
           eventId: event.id,
@@ -299,14 +314,14 @@ export default function EventDetailsPage() {
       
       // Mostrar toast e navegar para a página de login
       toast({
-        title: "Login necessário",
-        description: "Redirecionando para a página de login..."
+        title: t('eventDetails', 'loginRequired'),
+        description: t('eventDetails', 'redirectingToLogin')
       });
       
       // Navegar para a página de login após um breve delay
       setTimeout(() => {
-        window.location.href = "/auth";
-      }, 1000);
+        navigate("/auth");
+      }, 1500);
       
       return;
     }
@@ -356,16 +371,20 @@ export default function EventDetailsPage() {
     return tomorrow.toISOString().split('T')[0];
   };
   
+  // Fallback para título e descrição
+  const eventTitle = event?.title || event?.titlePt || 'Sem título';
+  const eventDescription = event?.description || event?.descriptionPt || 'Sem descrição';
+  
   if (!eventId) {
     return (
-        <main className="container mx-auto px-4 py-8">
-          <div className="text-center py-12">
-            <h3 className="text-xl font-medium text-gray-700">Evento não encontrado</h3>
-            <Button onClick={() => navigate("/events")} className="mt-4">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para a lista de eventos
-            </Button>
-          </div>
-        </main>
+      <main className="container mx-auto px-4 py-8">
+        <div className="text-center py-12">
+          <h3 className="text-xl font-medium text-gray-700">{t('eventDetails', 'eventNotFound')}</h3>
+          <Button onClick={() => navigate("/events")} className="mt-4">
+            <ArrowLeft className="mr-2 h-4 w-4" /> {t('eventDetails', 'backToEvents')}
+          </Button>
+        </div>
+      </main>
     );
   }
   
@@ -381,13 +400,13 @@ export default function EventDetailsPage() {
           <div className="bg-blue-50 border border-blue-200 p-4 mb-6 rounded-md flex justify-between items-center">
             <div className="text-blue-700 flex items-center">
               <LogIn className="h-5 w-5 mr-2" />
-              <span>Você não está logado. É necessário fazer login para realizar pedidos.</span>
+              <span>{t('eventDetails', 'loginRequiredForOrders')}</span>
             </div>
             <Button 
               className="bg-blue-600 hover:bg-blue-700"
               onClick={() => navigate("/auth")}
             >
-              Fazer Login
+              {t('auth', 'login')}
             </Button>
           </div>
         )}
@@ -396,7 +415,7 @@ export default function EventDetailsPage() {
           onClick={() => navigate("/events")}
           className="mb-6"
         >
-          <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para eventos
+          <ArrowLeft className="mr-2 h-4 w-4" /> {t('eventDetails', 'backToEvents')}
         </Button>
         
         {eventLoading ? (
@@ -424,20 +443,20 @@ export default function EventDetailsPage() {
             <div className="md:w-1/2">
               <img 
                 src={event.imageUrl} 
-                alt={event.title} 
+                alt={event.translatedTitle} 
                 className="w-full h-64 object-cover rounded-lg mb-4"
               />
-              <h1 className="text-2xl font-bold text-gray-800 mb-4">{event.title}</h1>
-              <p className="text-gray-600 mb-6">{event.description}</p>
+              <h1 className="text-2xl font-bold text-gray-800 mb-4">{event.translatedTitle}</h1>
+              <p className="text-gray-600 mb-6">{event.translatedDescription}</p>
               
               <div className="space-y-4 mb-6">
                 <div className="flex items-center text-gray-700">
                   <MenuSquare className="mr-3 w-5 h-5" />
-                  <span>{event.menuOptions} opções de menu disponíveis</span>
+                  <span>{t('eventDetails', 'menuOptionsAvailable', { count: event.menuOptions })}</span>
                 </div>
                 <div className="flex items-center text-gray-700">
                   <Clock className="mr-3 w-5 h-5" />
-                  <span>Disponível para agendamento</span>
+                  <span>{t('eventDetails', 'availableForBooking')}</span>
                 </div>
               </div>
               
@@ -448,7 +467,7 @@ export default function EventDetailsPage() {
                 </div>
             ) : menus && menus.length > 0 ? (
                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium text-gray-800">Opções de Menu</h3>
+                  <h3 className="text-lg font-medium text-gray-800">{t('eventDetails', 'menuOptions')}</h3>
                 {menus.map(menu => (
                   <div 
                     key={menu.id} 
@@ -513,7 +532,7 @@ export default function EventDetailsPage() {
                             ))}
                           </div>
                         ) : (
-                          <p className="text-sm text-gray-500">Nenhum prato disponível.</p>
+                          <p className="text-sm text-gray-500">{t('eventDetails', 'noDishesAvailable')}</p>
                         )}
                       </div>
                     ) : (
@@ -534,19 +553,19 @@ export default function EventDetailsPage() {
                 </div>
               ) : (
                 <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <p className="text-gray-600">Não há opções de menu disponíveis.</p>
+                  <p className="text-gray-600">{t('eventDetails', 'noMenuOptions')}</p>
                 </div>
               )}
             </div>
             
             <div className="md:w-1/2 space-y-6">
             <div className="p-6 border rounded-lg bg-white shadow-sm">
-              <h3 className="text-lg font-medium text-gray-800 mb-4">Detalhes do Pedido</h3>
+              <h3 className="text-lg font-medium text-gray-800 mb-4">{t('eventDetails', 'orderDetails')}</h3>
               
               <div className="space-y-4">
               <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Data do Evento
+                    {t('eventDetails', 'eventDate')}
                   </label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
@@ -560,14 +579,14 @@ export default function EventDetailsPage() {
                   </div>
                   {!eventDate && (
                     <p className="text-xs text-red-500 mt-1">
-                      Selecione a data do evento
+                      {t('eventDetails', 'selectEventDate')}
                     </p>
                   )}
               </div>
               
               <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Número de Convidados
+                    {t('eventDetails', 'numberOfGuests')}
                   </label>
                   <div className="relative">
                     <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
@@ -589,11 +608,11 @@ export default function EventDetailsPage() {
                   </div>
                   {guestCount < 20 ? (
                     <p className="text-xs text-red-500 mt-1">
-                      O número mínimo de convidados é 20
+                      {t('eventDetails', 'minimumGuestsError')}
                     </p>
                   ) : (
                     <p className="text-xs text-gray-500 mt-1">
-                      Mínimo de 20 convidados
+                      {t('eventDetails', 'minimumGuestsInfo')}
                     </p>
                   )}
                 </div>
@@ -601,7 +620,7 @@ export default function EventDetailsPage() {
               
               {!selectedMenuId && (
                 <p className="text-xs text-red-500 mt-4">
-                  Selecione um menu para continuar
+                  {t('eventDetails', 'selectMenuToContinue')}
                 </p>
               )}
               
@@ -609,19 +628,19 @@ export default function EventDetailsPage() {
                 <div className="mt-6 pt-6 border-t">
                   <div className="space-y-3">
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">Preço por pessoa:</span>
+                      <span className="text-gray-600">{t('eventDetails', 'pricePerPerson')}:</span>
                       <span className="font-medium text-gray-900">{formatCurrency(Number(selectedMenu.price))}</span>
                 </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">Número de convidados:</span>
+                      <span className="text-gray-600">{t('eventDetails', 'numberOfGuests')}:</span>
                       <span className="font-medium text-gray-900">{guestCount}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">Adicional de garçons:</span>
+                  <span className="text-gray-600">{t('eventDetails', 'waiterFee')}:</span>
                   <span className="font-medium text-gray-900">{formatCurrency(calculateWaiterFee())}</span>
                 </div>
                     <div className="flex justify-between items-center text-lg font-medium pt-3 border-t">
-                      <span className="text-gray-800">Total:</span>
+                      <span className="text-gray-800">{t('eventDetails', 'total')}:</span>
                       <span className="font-semibold text-emerald-600">{formatCurrency(Number(calculateTotalWithWaiter()))}</span>
                 </div>
               </div>
@@ -637,24 +656,24 @@ export default function EventDetailsPage() {
                     {isAddingToCart ? (
                       <>
                         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        Adicionando...
+                        {t('eventDetails', 'addingToCart')}
                       </>
                     ) : (
-                      "Adicionar ao Carrinho"
+                      t('eventDetails', 'addToCart')
                     )}
                   </span>
                   {showSuccess && (
                     <span className="absolute inset-0 flex items-center justify-center text-white">
                       <Check className="mr-2 h-5 w-5" />
-                      Adicionado!
+                      {t('eventDetails', 'addedToCart')}
                     </span>
                   )}
                 </Button>
               ) : (
                 <div className="mt-6">
                   <div className="p-4 bg-blue-50 border border-blue-200 rounded-md mb-4">
-                    <p className="text-blue-700 font-medium mb-2">É necessário fazer login para adicionar ao carrinho</p>
-                    <p className="text-blue-600 text-sm">Suas seleções serão preservadas após o login</p>
+                    <p className="text-blue-700 font-medium mb-2">{t('eventDetails', 'loginRequiredForCart')}</p>
+                    <p className="text-blue-600 text-sm">{t('eventDetails', 'selectionsPreserved')}</p>
                   </div>
                   <Button
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white"
@@ -682,18 +701,18 @@ export default function EventDetailsPage() {
                     }}
                   >
                     <LogIn className="mr-2 h-4 w-4" />
-                    Fazer Login para Continuar
+                    {t('eventDetails', 'loginToContinue')}
               </Button>
                 </div>
               )}
                   
                   {!isFormValid() && (
                     <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-md">
-                      <p className="text-sm text-red-800 font-medium">Corrija os seguintes erros:</p>
+                      <p className="text-sm text-red-800 font-medium">{t('eventDetails', 'fixErrors')}:</p>
                       <ul className="mt-2 text-xs text-red-700 list-disc list-inside">
-                        {!eventDate && <li>Selecione a data do evento</li>}
-                        {guestCount < 20 && <li>O número mínimo de convidados é 20</li>}
-                        {!selectedMenuId && <li>Selecione um menu</li>}
+                        {!eventDate && <li>{t('eventDetails', 'selectEventDate')}</li>}
+                        {guestCount < 20 && <li>{t('eventDetails', 'minimumGuestsError')}</li>}
+                        {!selectedMenuId && <li>{t('eventDetails', 'selectMenu')}</li>}
                       </ul>
                     </div>
                   )}

@@ -14,7 +14,7 @@ INSERT INTO dishes (name, description, category, menu_id, price) VALUES
 ('Bolo de chocolate', 'Bolo de chocolate fofinho com cobertura de ganache', 'BOLOS', (SELECT id FROM menu), 7.00),
 ('Bolo de laranja', 'Bolo de laranja com calda cítrica', 'BOLOS', (SELECT id FROM menu), 6.00),
 ('Mini brownie', 'Mini brownie de chocolate meio amargo', 'SOBREMESAS', (SELECT id FROM menu), 4.00),
-('Petit four doce', 'Variedade de petit fours doces artesanais', 'SOBREMESAS', (SELECT id FROM menu), 3.50);
+('Petit four doce', 'Variedade de petit fours doces artesanais', 'SOBREMESAS', (SELECT id FROM menu), 3.50, );
 
 -- Insert dishes for COFFEE BREAK STANDARD
 WITH menu AS (SELECT id FROM menus WHERE name = 'COFFEE BREAK STANDARD')

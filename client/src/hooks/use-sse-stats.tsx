@@ -33,12 +33,11 @@ export interface SSEStatsHook {
 
 // Função para obter a URL base da API
 const getApiBaseUrl = (): string => {
-  // Usar a URL base do ambiente se disponível, senão usar localhost
-  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333';
+  return 'http://localhost:5000';
 };
 
 // Hook personalizado para conectar ao SSE e receber atualizações em tempo real
-export const useSSEStats = (): SSEStatsHook => {
+export const useSSEStats = (dateRange?: { start: string; end: string }, autoRefresh: boolean = true): SSEStatsHook => {
   // Estado para armazenar as estatísticas
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,6 +51,8 @@ export const useSSEStats = (): SSEStatsHook => {
 
   // Processa os dados recebidos e garante que todos os campos necessários existam
   const processStatsData = useCallback((data: any): DashboardStats => {
+    console.log('[SSE] processStatsData recebeu:', data);
+    
     // Garantir que recentOrders sempre exista como array
     const recentOrders = Array.isArray(data.recentOrders) ? data.recentOrders : [];
     
@@ -82,9 +83,16 @@ export const useSSEStats = (): SSEStatsHook => {
       recentOrders: recentOrders,
       eventsPerMonth: data.eventsPerMonth || [],
       eventCategories: data.eventCategories || [],
-      orderStatusStats: data.orderStatusStats || { pending: 0, confirmed: 0, completed: 0 },
+      orderStatusStats: data.orderStatusStats || data.ordersByStatus || { pending: 0, confirmed: 0, completed: 0 },
       timestamp: data.timestamp || new Date().toISOString()
     };
+    
+    console.log('[SSE] statsData processado:', {
+      totalEvents: statsData.totalEvents,
+      totalOrders: statsData.totalOrders,
+      recentOrders: statsData.recentOrders.length,
+      ordersByStatus: statsData.orderStatusStats
+    });
     
     // Verificação final
     if (!statsData.recentOrders || statsData.recentOrders.length === 0) {
@@ -98,6 +106,13 @@ export const useSSEStats = (): SSEStatsHook => {
   const fetchGuaranteedOrders = useCallback(async (statsData: any): Promise<DashboardStats> => {
     try {
       console.warn("[SSE] Não há pedidos recentes, tentando buscar pedidos garantidos");
+      
+      // NÃO buscar pedidos garantidos se há filtro de data ativo
+      if (dateRange && dateRange.start && dateRange.end) {
+        console.log("[SSE] Filtro de data ativo - NÃO buscando pedidos garantidos");
+        console.log("[SSE] Retornando dados filtrados mesmo que vazios");
+        return processStatsData(statsData);
+      }
       
       const response = await fetch(`${getApiBaseUrl()}/api/orders?forceGuaranteed=true`, {
         method: 'GET',
@@ -133,78 +148,84 @@ export const useSSEStats = (): SSEStatsHook => {
       console.error("[SSE] Erro ao buscar pedidos garantidos:", error);
       return processStatsData(statsData);
     }
-  }, [processStatsData]);
+  }, [processStatsData, dateRange]);
 
   // Definindo a função refreshStats
   const refreshStats = useCallback(async (): Promise<boolean> => {
-    console.log('[SSE] Atualizando estatísticas...');
-    setIsLoading(true);
-    
-    // Fechar conexão existente, se houver
-    if (eventSource) {
-      console.log('[SSE] Fechando conexão existente');
-      eventSource.close();
-    }
-
-    // URL do SSE
-    const apiUrl = `${getApiBaseUrl()}/api/stats-stream`;
-    console.log('[SSE] Conectando ao endpoint:', apiUrl);
-    
     try {
-      const newEventSource = new EventSource(apiUrl);
-      setEventSource(newEventSource);
+      console.log('[SSE] refreshStats chamado com dateRange:', dateRange);
+      console.log('[SSE] dateRange é undefined?', dateRange === undefined);
+      console.log('[SSE] dateRange é null?', dateRange === null);
+      console.log('[SSE] dateRange.start existe?', !!dateRange?.start);
+      console.log('[SSE] dateRange.end existe?', !!dateRange?.end);
       
-      newEventSource.onopen = () => {
-        console.log('[SSE] Conexão estabelecida');
-        setIsLoading(false);
-        setIsConnected(true);
-      };
+      setIsLoading(true);
       
-      newEventSource.onmessage = async (event) => {
-        try {
-          const parsedData = JSON.parse(event.data);
-          console.log('[SSE] Atualização de dados recebida:', parsedData);
-          setLastUpdate(new Date());
-          
-          // Verificar existência de pedidos recentes
-          if (!parsedData.recentOrders || parsedData.recentOrders.length === 0) {
-            // Buscar pedidos garantidos se não houver pedidos
-            const enhancedData = await fetchGuaranteedOrders(parsedData);
-            setStats(enhancedData);
-          } else {
-            // Processar normalmente se já houver pedidos
-            console.log("[SSE] Pedidos recentes encontrados:", parsedData.recentOrders.length);
-            setStats(processStatsData(parsedData));
-          }
-          
-          setIsLoading(false);
-          setIsConnected(true);
-        } catch (err) {
-          console.error('[SSE] Erro ao processar mensagem:', err);
-          setError('Erro ao processar dados recebidos');
+      let url = `${getApiBaseUrl()}/api/basic-stats`;
+      let params = new URLSearchParams();
+      
+      // Se há filtro válido, usar o filtro
+      if (dateRange && dateRange.start && dateRange.end && dateRange.start !== '' && dateRange.end !== '') {
+        params.set('start', dateRange.start);
+        params.set('end', dateRange.end);
+        console.log('[SSE] Usando filtro:', dateRange);
+      } else {
+        // Se não há filtro, buscar TODOS os dados (sem filtro de data)
+        console.log('[SSE] Sem filtro - buscando todos os dados');
+        console.log('[SSE] Não adicionando parâmetros de data à URL');
+        // Não adicionar parâmetros de data para buscar todos os dados
+      }
+      
+      params.set('ts', Date.now().toString());
+      url += `?${params}`;
+      
+      console.log('[SSE] URL final:', url);
+      console.log('[SSE] Parâmetros:', params.toString());
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
         }
-      };
+      });
       
-      newEventSource.onerror = (err) => {
-        console.error('[SSE] Erro na conexão SSE:', err);
-        setError('Falha na conexão com o servidor de eventos');
-        setIsLoading(false);
-        setIsConnected(false);
-        
-        // Fechar e tentar reconectar
-        newEventSource.close();
-        setEventSource(null);
-      };
+      if (!response.ok) {
+        throw new Error(`Erro ao buscar dados: ${response.status}`);
+      }
       
+      const data = await response.json();
+      console.log('[SSE] Dados recebidos:', data);
+      console.log('[SSE] Total de eventos recebidos:', data.recentEvents?.length || 0);
+      console.log('[SSE] Total de pedidos recebidos:', data.recentOrders?.length || 0);
+      
+      setLastUpdate(new Date());
+      setStats(processStatsData(data));
+      setIsLoading(false);
+      setIsConnected(true);
       setError(null);
+      
       return true;
     } catch (err) {
-      console.error('[SSE] Erro ao iniciar conexão:', err);
-      setError('Não foi possível conectar ao servidor');
+      console.error('[SSE] Erro:', err);
+      setError('Erro ao buscar dados');
       setIsLoading(false);
+      setIsConnected(false);
       return false;
     }
-  }, [eventSource, fetchGuaranteedOrders, processStatsData]);
+  }, [dateRange, processStatsData]);
+  
+  // Adicionar um timeout de segurança para garantir que loading seja sempre limpo
+  useEffect(() => {
+    if (isLoading) {
+      const safetyTimeout = setTimeout(() => {
+        console.warn('[SSE] Timeout de segurança: limpando loading após 10 segundos');
+        setIsLoading(false);
+      }, 10000);
+      
+      return () => clearTimeout(safetyTimeout);
+    }
+  }, [isLoading]);
   
   // Atualizar a referência quando a função refreshStats mudar
   useEffect(() => {
@@ -217,28 +238,45 @@ export const useSSEStats = (): SSEStatsHook => {
     console.log('[SSE] Inicializando e buscando dados iniciais...');
     refreshStats();
     
-    // Configurar atualização automática a cada 10 segundos
-    const intervalId = setInterval(() => {
-      console.log('[SSE] Executando atualização automática...');
-      refreshStatsRef.current();
-    }, 10000);
+    // Configurar atualização automática a cada 10 segundos apenas se autoRefresh estiver ativo
+    let intervalId: NodeJS.Timeout | null = null;
+    if (autoRefresh) {
+      intervalId = setInterval(() => {
+        console.log('[SSE] Executando atualização automática...');
+        // IMPORTANTE: Sempre usar refreshStats que já considera o dateRange atual
+        refreshStats();
+      }, 10000);
+    }
     
     return () => {
       // Limpar intervalo e conexões quando o componente for desmontado
-      clearInterval(intervalId);
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
       
       if (eventSource) {
         console.log('[SSE] Fechando conexão na limpeza do efeito');
         eventSource.close();
       }
     };
-  }, [refreshStats, eventSource]);
+  }, [autoRefresh, refreshStats]);
+  
+  // Efeito para reagir às mudanças no filtro de data
+  useEffect(() => {
+    console.log('[SSE] useEffect dateRange mudou:', dateRange);
+    // Usar setTimeout para evitar loops infinitos
+    const timeoutId = setTimeout(() => {
+      refreshStats();
+    }, 100);
+    
+    return () => clearTimeout(timeoutId);
+  }, [dateRange, refreshStats]);
   
   // Tentar reconectar se o navegador ficar online novamente
   useEffect(() => {
     const handleOnline = () => {
       if (!eventSource) {
-        toast.info('Conexão de rede restaurada, reconectando...');
+        console.log('Conexão de rede restaurada, reconectando...');
         refreshStatsRef.current();
       }
     };

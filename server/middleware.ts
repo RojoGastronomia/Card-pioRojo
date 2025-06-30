@@ -22,6 +22,7 @@ export const requireRole = (requiredRole: string) => {
 
     const userRole = req.user.role;
     const roleHierarchy = {
+      master: 5,
       [ROLES.ADMIN]: 4,
       [ROLES.MANAGER]: 3,
       [ROLES.LEADER]: 2,

@@ -1,0 +1,23 @@
+# CONFIGURAÇÕES DE EMAIL NECESSÁRIAS
+# Adicione estas variáveis ao seu arquivo .env
+
+# Configurações SMTP (exemplo para Gmail)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=seu-email@gmail.com
+SMTP_PASS=sua-senha-de-app-gmail
+SMTP_FROM=noreply@sitecard.com.br
+
+# Email da equipe comercial
+COMMERCIAL_TEAM_EMAIL=suporte@rojogastronomia.com
+
+# INSTRUÇÕES PARA CONFIGURAR GMAIL:
+# 1. Ative a verificação em 2 etapas na sua conta Google
+# 2. Gere uma "Senha de App" em: https://myaccount.google.com/apppasswords
+# 3. Use essa senha no campo SMTP_PASS
+
+# ALTERNATIVAS PARA SMTP:
+# - Outlook/Hotmail: smtp-mail.outlook.com
+# - Yahoo: smtp.mail.yahoo.com
+# - Provedor próprio: consulte seu provedor de email 

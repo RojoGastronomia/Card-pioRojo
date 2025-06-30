@@ -6,23 +6,59 @@ import { rateLimiter, requireRole, validateInput, errorHandler, requestLogger, s
 import { monitoring, trackResponseTime } from './monitoring';
 import { cache } from './cache';
 import { ROLES } from './config';
+import path from 'path';
 
 const app = express();
 
-// Basic middleware
-app.use(express.json());
+// CORS must come first
 app.use(cors({
   origin: process.env.CORS_ORIGIN || '*',
-  credentials: true
+  credentials: true,
+  maxAge: 86400,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Expires', 'Content-Length']
 }));
 
+// Basic middleware with increased limits
+app.use(express.json({ limit: '100mb' })); // Aumentado para 100MB
+app.use(express.urlencoded({ extended: true, limit: '100mb' })); // Aumentado para 100MB
+
+// Static files middleware for uploaded files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Security middleware
-app.use(rateLimiter);
-app.use(sanitizeInput);
+// app.use(rateLimiter); // Temporariamente desabilitado
+// app.use(sanitizeInput); // Temporariamente desabilitado
 
 // Monitoring middleware
 app.use(requestLogger);
 app.use(trackResponseTime);
+
+// Increase header size limit
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  next();
+});
+
+// Middleware global para garantir headers CORS em todas as rotas
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Expires');
+  next();
+});
+
+// Rota global para responder preflight OPTIONS
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Expires');
+  res.sendStatus(200);
+});
 
 // Health check endpoint
 app.get('/health', async (req: Request, res: Response) => {
@@ -49,7 +85,7 @@ app.get('/metrics', requireRole(ROLES.ADMIN), async (req: Request, res: Response
     system: systemMetrics,
     database: dbMetrics,
     cache: {
-      stats: cache.getStats(),
+      // stats: cache.getStats(), // Removido temporariamente
     },
   });
 });

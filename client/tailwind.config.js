@@ -2,8 +2,8 @@
 module.exports = {
   darkMode: ["class"],
   content: [
-    "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
+    "./public/index.html"
   ],
   theme: {
     extend: {
@@ -13,10 +13,7 @@ module.exports = {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-        primary: {
-          DEFAULT: "#10b981", // Verde original
-          foreground: "#FFFFFF",
-        },
+        primary: "hsl(var(--primary))",
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",

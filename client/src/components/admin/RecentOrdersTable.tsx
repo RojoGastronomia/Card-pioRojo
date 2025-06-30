@@ -1,5 +1,6 @@
 import { formatCurrency } from "@/lib/utils";
 import { useEffect, useMemo } from "react";
+import { useLanguage } from "@/context/language-context";
 
 interface RecentOrder {
   id: number;
@@ -40,6 +41,8 @@ const formatDate = (date: string | Date | undefined): string => {
 };
 
 export function RecentOrdersTable({ orders, isLoading }: RecentOrdersTableProps) {
+  const { t } = useLanguage();
+
   // Usar useMemo para ordenar os pedidos por data (mais próxima primeiro)
   const sortedOrders = useMemo(() => {
     if (!orders || orders.length === 0) return [];
@@ -66,7 +69,7 @@ export function RecentOrdersTable({ orders, isLoading }: RecentOrdersTableProps)
     console.log("[OrdersTable] Exibindo estado de carregamento");
     return (
       <div className="p-4 text-center">
-        <p className="text-muted-foreground">Carregando pedidos...</p>
+        <p className="text-muted-foreground">{t('admin', 'loading')}</p>
       </div>
     );
   }
@@ -75,9 +78,9 @@ export function RecentOrdersTable({ orders, isLoading }: RecentOrdersTableProps)
     console.log("[OrdersTable] Nenhum pedido encontrado para exibir");
     return (
       <div className="p-8 text-center">
-        <p className="text-muted-foreground">Nenhum pedido encontrado no sistema.</p>
+        <p className="text-muted-foreground">{t('admin', 'noOrdersToDisplay')}</p>
         <p className="text-xs text-muted-foreground mt-1">
-          Os pedidos aparecerão aqui quando forem registrados no sistema.
+          {t('admin', 'backendEmptyOrders')}
         </p>
       </div>
     );
@@ -103,11 +106,11 @@ export function RecentOrdersTable({ orders, isLoading }: RecentOrdersTableProps)
         <thead>
           <tr className="bg-muted/50">
             <th className="py-3 px-4 text-left font-medium text-muted-foreground">ID</th>
-            <th className="py-3 px-4 text-left font-medium text-muted-foreground">Data</th>
-            <th className="py-3 px-4 text-left font-medium text-muted-foreground">Convidados</th>
-            <th className="py-3 px-4 text-left font-medium text-muted-foreground">Menu</th>
-            <th className="py-3 px-4 text-left font-medium text-muted-foreground">Valor</th>
-            <th className="py-3 px-4 text-left font-medium text-muted-foreground">Status</th>
+            <th className="py-3 px-4 text-left font-medium text-muted-foreground">{t('admin', 'date')}</th>
+            <th className="py-3 px-4 text-left font-medium text-muted-foreground">{t('admin', 'guests')}</th>
+            <th className="py-3 px-4 text-left font-medium text-muted-foreground">{t('admin', 'menu')}</th>
+            <th className="py-3 px-4 text-left font-medium text-muted-foreground">{t('admin', 'amount')}</th>
+            <th className="py-3 px-4 text-left font-medium text-muted-foreground">{t('admin', 'status')}</th>
           </tr>
         </thead>
         <tbody>
@@ -135,12 +138,12 @@ export function RecentOrdersTable({ orders, isLoading }: RecentOrdersTableProps)
                   }`}
                 >
                   {order.status === 'confirmed' 
-                    ? 'Confirmado' 
+                    ? t('admin', 'confirmed')
                     : order.status === 'pending'
-                    ? 'Pendente'
+                    ? t('admin', 'pending')
                     : order.status === 'completed'
-                    ? 'Concluído'
-                    : order.status || 'Desconhecido'}
+                    ? t('admin', 'completed')
+                    : t('admin', 'unknown')}
                 </span>
               </td>
             </tr>
@@ -148,7 +151,7 @@ export function RecentOrdersTable({ orders, isLoading }: RecentOrdersTableProps)
         </tbody>
       </table>
       <div className="p-4 text-xs text-right text-muted-foreground">
-        Total de pedidos: {orders.length}
+        {t('admin', 'totalOrders')}: {orders.length}
       </div>
     </div>
   );

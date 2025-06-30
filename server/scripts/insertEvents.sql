@@ -1,0 +1,7 @@
+-- Inserir eventos de exemplo
+INSERT INTO events (title, description, title_en, description_en, image_url, location, event_type, menu_options, status) VALUES
+('Jantar de Gala', 'Uma noite especial com menu gourmet e ambiente sofisticado', 'Gala Dinner', 'A special evening with gourmet menu and sophisticated atmosphere', 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800', 'São Paulo, SP', 'Gala', 3, 'available'),
+('Conferência Empresarial', 'Evento corporativo com coffee break e almoço executivo', 'Business Conference', 'Corporate event with coffee break and executive lunch', 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=800', 'Rio de Janeiro, RJ', 'Corporativo', 2, 'available'),
+('Casamento Tradicional', 'Celebração de casamento com menu personalizado', 'Traditional Wedding', 'Wedding celebration with personalized menu', 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=800', 'Belo Horizonte, MG', 'Casamento', 4, 'available'),
+('Aniversário Corporativo', 'Festa de aniversário da empresa com buffet completo', 'Corporate Birthday', 'Company birthday party with complete buffet', 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800', 'Curitiba, PR', 'Corporativo', 3, 'available'),
+('Cocktail de Lançamento', 'Evento de lançamento de produto com coquetéis especiais', 'Product Launch Cocktail', 'Product launch event with special cocktails', 'https://images.unsplash.com/photo-1555244162-803834f70033?w=800', 'Salvador, BA', 'Lançamento', 2, 'available'); 

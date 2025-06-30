@@ -3,22 +3,24 @@ import {
   type InsertEvent, type InsertOrder, type InsertUser, 
   type Menu, type Dish, type InsertMenu, type InsertDish,
   users, events, menus, dishes, orders, eventMenus, menuDishes,
-  type Venue, type Room, type InsertVenue, type InsertRoom
+  type Venue, type Room, type InsertVenue, type InsertRoom,
+  type Category, type InsertCategory, categories
 } from "shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
-import { db, pool } from "./db";
+import { db } from "./db";
 import { eq, desc, sql, and } from "drizzle-orm";
-import connectPg from "connect-pg-simple";
 import logger from './logger'; // Importar o logger
 import fs from 'fs/promises'; // Usar fs/promises para async/await
 import path from 'path';
 import { EventEmitter } from 'events';
+import { hashPassword } from './auth';
+import { notifyDataChange } from './sse';
 
 export interface IStorage {
   // User operations
   getUser(id: number): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByUsername(username: string, role?: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   getAllUsers(): Promise<User[]>;
@@ -53,6 +55,7 @@ export interface IStorage {
   deleteDish(id: number): Promise<void>;
   getMenusByDishId(dishId: number): Promise<Menu[]>;
   associateDishWithMenu(dishId: number, menuId: number): Promise<Dish>;
+  dissociateDishFromMenu(dishId: number, menuId: number): Promise<void>;
 
   // Order operations
   getOrder(id: number): Promise<Order | undefined>;
@@ -65,6 +68,7 @@ export interface IStorage {
   getTotalRevenue(): Promise<number>;
   getPotentialRevenue(): Promise<number>;
   updateOrderAdminNotes(id: number, notes: string): Promise<Order | undefined>;
+  updateOrderBoleto(id: number, boletoUrl: string): Promise<Order | undefined>;
 
   // Session store
   sessionStore: session.Store;
@@ -111,37 +115,49 @@ export interface IStorage {
   createRoom(venueId: number, insertRoom: InsertRoom): Promise<Room>;
   updateRoom(id: number, roomData: InsertRoom): Promise<Room | undefined>;
   deleteRoom(id: number): Promise<void>;
+
+  // Categories methods
+  getAllCategories(): Promise<Category[]>;
+  createCategory(categoryData: InsertCategory): Promise<Category>;
+  updateCategory(id: number, categoryData: Partial<InsertCategory>): Promise<Category | undefined>;
+  deleteCategory(id: number): Promise<void>;
 }
 
-const PostgresSessionStore = connectPg(session);
+const MemoryStore = createMemoryStore(session);
 
 // Implementação do DatabaseStorage
 export class DatabaseStorage implements IStorage {
   sessionStore: session.Store;
 
   constructor() {
-    this.sessionStore = new PostgresSessionStore({
-      pool,
-      createTableIfMissing: true,
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000 // Limpar sessões expiradas a cada 24h
     });
   }
 
   // Implementação de métodos de usuário
   async getUser(id: number): Promise<User | undefined> {
-    console.log(`[Storage] getUser called with ID: ${id}`); // Log entry
+    console.log(`[Storage] getUser called with ID: ${id}`);
     try {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-      console.log(`[Storage] getUser query returned: ${user ? user.username : 'undefined'}`); // Log result
-    return user;
+      const result = await db.query.users.findFirst({
+        where: eq(users.id, id)
+      });
+      console.log(`[Storage] getUser query returned: ${result ? result.username : 'undefined'}`);
+      return result;
     } catch (error) {
       console.error(`[Storage] Error in getUser for ID ${id}:`, error); // Log error
       throw error; // Re-throw the error to be caught by auth
     }
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user;
+  async getUserByUsername(username: string, role?: string): Promise<User | undefined> {
+    if (role) {
+      const [user] = await db.select().from(users).where(and(eq(users.username, username), eq(users.role, role)));
+      return user;
+    } else {
+      const [user] = await db.select().from(users).where(eq(users.username, username));
+      return user;
+    }
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
@@ -379,6 +395,31 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async dissociateDishFromMenu(dishId: number, menuId: number): Promise<void> {
+    // First check if the dish exists
+    const dish = await this.getDish(dishId);
+    if (!dish) {
+      throw new Error(`Dish with ID ${dishId} not found`);
+    }
+
+    // Check if the menu exists
+    const menu = await this.getMenu(menuId);
+    if (!menu) {
+      throw new Error(`Menu with ID ${menuId} not found`);
+    }
+
+    // Remove from the junction table
+    try {
+      await db.delete(menuDishes)
+        .where(and(eq(menuDishes.menuId, menuId), eq(menuDishes.dishId, dishId)));
+      
+      console.log(`[Storage] Dissociated dish ${dishId} from menu ${menuId} in junction table`);
+    } catch (error) {
+      console.error(`[Storage] Error dissociating dish ${dishId} from menu ${menuId}:`, error);
+      throw error;
+    }
+  }
+
   // Order operations
   async getOrder(id: number): Promise<Order | undefined> {
     const [order] = await db.select().from(orders).where(eq(orders.id, id));
@@ -386,34 +427,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllOrders(): Promise<Order[]> {
-    console.log("[Storage] Buscando todos os pedidos...");
+    console.log("[Storage] Buscando todos os pedidos reais do banco de dados...");
     try {
       const realOrders = await db.select().from(orders);
-      console.log(`[Storage] Encontrados ${realOrders.length} pedidos no banco de dados`);
-      
-      // Se não houver pedidos reais, usar pedidos garantidos
-      if (realOrders.length === 0) {
-        console.log("[Storage] Nenhum pedido real encontrado, usando pedidos garantidos");
-        const backupOrders = await this.getConfirmedOrders();
-        console.log(`[Storage] Retornando ${backupOrders.length} pedidos garantidos`);
-        return backupOrders;
-      }
+      console.log(`[Storage] Encontrados ${realOrders.length} pedidos reais no banco de dados`);
       
       // Sempre retornar os pedidos reais, mesmo que seja uma lista vazia
       console.log(`[Storage] Retornando ${realOrders.length} pedidos reais do banco`);
+      
+      // Log detalhado dos pedidos encontrados para debug
+      if (realOrders.length > 0) {
+        console.log(`[Storage] Detalhes dos pedidos reais encontrados:`);
+        realOrders.forEach((order, index) => {
+          console.log(`[Storage] Pedido #${index + 1}: ID=${order.id}, Status=${order.status}, Valor=${order.totalAmount}, Data=${order.createdAt}`);
+        });
+      } else {
+        console.log(`[Storage] Nenhum pedido real encontrado no banco de dados`);
+      }
+      
       return realOrders;
     } catch (error) {
-      console.error("[Storage] Erro ao buscar pedidos:", error);
-      // Em caso de erro, tentar usar pedidos garantidos
-      console.log("[Storage] Erro na busca de pedidos, usando pedidos garantidos");
-      try {
-        const backupOrders = await this.getConfirmedOrders();
-        console.log(`[Storage] Retornando ${backupOrders.length} pedidos garantidos após erro`);
-        return backupOrders;
-      } catch (backupError) {
-        console.error("[Storage] Também falhou ao obter pedidos garantidos:", backupError);
-        return []; // Em último caso, retornar lista vazia
-      }
+      console.error("[Storage] Erro ao buscar pedidos reais:", error);
+      console.log("[Storage] Retornando lista vazia devido ao erro");
+      return []; // Em caso de erro, retornar lista vazia
     }
   }
 
@@ -432,6 +468,9 @@ export class DatabaseStorage implements IStorage {
       .set({ status })
       .where(eq(orders.id, id))
       .returning();
+    if (updatedOrder) {
+      notifyDataChange(); // Notifica o SSE para atualizar o dashboard
+    }
     return updatedOrder;
   }
 
@@ -614,19 +653,51 @@ export class DatabaseStorage implements IStorage {
 
   // Access Control
   async getPermissions(): Promise<any[]> {
-    return [
-      { id: 1, name: "read:users", description: "Ler usuários" },
-      { id: 2, name: "write:users", description: "Modificar usuários" },
-      { id: 3, name: "delete:users", description: "Deletar usuários" }
-    ];
+    if (!this._permissions) {
+      this._permissions = [
+        { id: 1, name: "read:users", description: "Ler usuários" },
+        { id: 2, name: "write:users", description: "Modificar usuários" },
+        { id: 3, name: "delete:users", description: "Deletar usuários" }
+      ];
+    }
+    return this._permissions;
+  }
+
+  async createPermission({ name, description }: { name: string, description: string }): Promise<any> {
+    if (!this._permissions) await this.getPermissions();
+    const newId = this._permissions.length > 0 ? Math.max(...this._permissions.map(p => p.id)) + 1 : 1;
+    const newPerm = { id: newId, name, description };
+    this._permissions.push(newPerm);
+    return newPerm;
+  }
+
+  async deletePermission(id: number): Promise<void> {
+    if (!this._permissions) await this.getPermissions();
+    this._permissions = this._permissions.filter(p => p.id !== id);
   }
 
   async getRoles(): Promise<any[]> {
-    return [
-      { id: 1, name: "admin", permissions: ["read:users", "write:users", "delete:users"] },
-      { id: 2, name: "manager", permissions: ["read:users", "write:users"] },
-      { id: 3, name: "user", permissions: ["read:users"] }
-    ];
+    if (!this._roles) {
+      this._roles = [
+        { id: 1, name: "admin", permissions: ["read:users", "write:users", "delete:users"] },
+        { id: 2, name: "manager", permissions: ["read:users", "write:users"] },
+        { id: 3, name: "user", permissions: ["read:users"] }
+      ];
+    }
+    return this._roles;
+  }
+
+  async createRole({ name, permissions }: { name: string, permissions: string[] }): Promise<any> {
+    if (!this._roles) await this.getRoles();
+    const newId = this._roles.length > 0 ? Math.max(...this._roles.map(r => r.id)) + 1 : 1;
+    const newRole = { id: newId, name, permissions };
+    this._roles.push(newRole);
+    return newRole;
+  }
+
+  async deleteRole(id: number): Promise<void> {
+    if (!this._roles) await this.getRoles();
+    this._roles = this._roles.filter(r => r.id !== id);
   }
 
   async generateApiToken(data: any): Promise<any> {
@@ -656,6 +727,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSystemResources(): Promise<any> {
+  //tem que deixar essa bomba retornando dados reais
     return {
       totalMemory: "16GB",
       usedMemory: "8GB",
@@ -665,6 +737,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSystemAlerts(): Promise<any[]> {
+    //retornando dados reais também
     return [
       { type: "warning", message: "Alto uso de CPU", timestamp: new Date().toISOString() },
       { type: "info", message: "Backup agendado", timestamp: new Date().toISOString() }
@@ -685,217 +758,89 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined> {
+    let dataToUpdate = { ...userData };
+    if (userData.password) {
+      dataToUpdate.password = await hashPassword(userData.password);
+    }
     const [updatedUser] = await db
       .update(users)
-      .set(userData)
+      .set(dataToUpdate)
       .where(eq(users.id, id))
       .returning();
+    if (updatedUser) notifyDataChange();
     return updatedUser;
   }
 
   async getConfirmedOrders(): Promise<any[]> {
-    console.log("[Storage] Buscando todos os pedidos reais do banco de dados");
+    console.log("[Storage] Buscando pedidos confirmados reais do banco de dados");
     
     try {
-      // Obter data atual para garantir que os pedidos apareçam no mês atual
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth();
+      // Buscar pedidos reais do banco de dados
+      const realOrders = await db.select().from(orders);
       
-      // Criar datas no mês atual
-      const createDate = (day: number) => {
-        return new Date(currentYear, currentMonth, day, 10, 0, 0);
-      };
+      console.log(`[Storage] Encontrados ${realOrders.length} pedidos reais no banco`);
       
-      // Lista de pedidos hardcoded para garantir dados completos
-      // Com datas atualizadas para o mês atual
-      const pedidosGarantidos = [
-        {
-          id: 1,
-          status: "confirmed",
-          eventId: 1,
-          totalAmount: 2500,
-          guestCount: 25,
-          date: createDate(12),
-          menuSelection: "Menu Premium",
-          event: {
-            id: 1,
-            title: "Coffee Break Empresarial",
-            description: "Coffee break para eventos empresariais",
-            date: createDate(12),
-            status: "confirmed"
-          },
-          user: {
-            id: 9,
-            name: "Márcio",
-            email: "marcio@exemplo.com",
-            role: "user"
-          }
-        },
-        {
-          id: 2,
-          status: "pending",
-          eventId: 2,
-          totalAmount: 1000,
-          guestCount: 20,
-          date: createDate(11),
-          menuSelection: "Menu Coffee Break Gourmet",
-          event: {
-            id: 2,
-            title: "Coffee Break para Treinamentos",
-            description: "Coffee break para treinamentos corporativos",
-            date: createDate(11),
-            status: "pending"
-          },
-          user: {
-            id: 9,
-            name: "Márcio",
-            email: "marcio@exemplo.com",
-            role: "user"
-          }
-        },
-        {
-          id: 3,
-          status: "confirmed",
-          eventId: 3,
-          totalAmount: 3900,
-          guestCount: 39,
-          date: createDate(15),
-          menuSelection: "Menu Almoço Executivo",
-          event: {
-            id: 3,
-            title: "Almoço Corporativo",
-            description: "Almoço para eventos corporativos importantes",
-            date: createDate(15),
-            status: "confirmed"
-          },
-          user: {
-            id: 9,
-            name: "Márcio",
-            email: "marcio@exemplo.com",
-            role: "user"
-          }
-        },
-        {
-          id: 4,
-          status: "confirmed",
-          eventId: 4,
-          totalAmount: 9400,
-          guestCount: 188,
-          date: createDate(6),
-          menuSelection: "Menu Coffee Break Premium",
-          event: {
-            id: 4,
-            title: "Evento de Inauguração",
-            description: "Coffee break para inauguração de empresa",
-            date: createDate(6),
-            status: "confirmed"
-          },
-          user: {
-            id: 9,
-            name: "Márcio",
-            email: "marcio@exemplo.com",
-            role: "user"
-          }
-        },
-        {
-          id: 5,
-          status: "confirmed",
-          eventId: 5,
-          totalAmount: 1300,
-          guestCount: 20,
-          date: createDate(5),
-          menuSelection: "Menu Coffee Break Deluxe",
-          event: {
-            id: 5,
-            title: "Workshop de Marketing",
-            description: "Coffee break para workshops",
-            date: createDate(5),
-            status: "confirmed"
-          },
-          user: {
-            id: 9,
-            name: "Márcio",
-            email: "marcio@exemplo.com",
-            role: "user"
-          }
-        },
-        {
-          id: 6,
-          status: "pending",
-          eventId: 6,
-          totalAmount: 2800,
-          guestCount: 35,
-          date: createDate(18),
-          menuSelection: "Menu Cocktail",
-          event: {
-            id: 6,
-            title: "Networking Empresarial",
-            description: "Evento de networking para executivos",
-            date: createDate(18),
-            status: "pending"
-          },
-          user: {
-            id: 9,
-            name: "Márcio",
-            email: "marcio@exemplo.com",
-            role: "user"
-          }
-        },
-        {
-          id: 7,
-          status: "pending",
-          eventId: 7,
-          totalAmount: 1750,
-          guestCount: 25,
-          date: createDate(22),
-          menuSelection: "Menu Café da Manhã",
-          event: {
-            id: 7,
-            title: "Reunião de Negócios",
-            description: "Café da manhã executivo",
-            date: createDate(22),
-            status: "pending"
-          },
-          user: {
-            id: 9,
-            name: "Márcio",
-            email: "marcio@exemplo.com",
-            role: "user"
-          }
-        },
-        {
-          id: 8,
-          status: "pending",
-          eventId: 8,
-          totalAmount: 3500,
-          guestCount: 50,
-          date: createDate(28),
-          menuSelection: "Menu Coffee Break Standard",
-          event: {
-            id: 8,
-            title: "Conferência Técnica",
-            description: "Coffee break para conferência técnica anual",
-            date: createDate(28),
-            status: "pending"
-          },
-          user: {
-            id: 9,
-            name: "Márcio",
-            email: "marcio@exemplo.com",
-            role: "user"
-          }
+      // Se não há pedidos reais, retornar lista vazia
+      if (realOrders.length === 0) {
+        console.log("[Storage] Nenhum pedido encontrado no banco, retornando lista vazia");
+        return [];
+      }
+      
+      // Processar pedidos reais para incluir informações de eventos e usuários
+      const processedOrders = await Promise.all(realOrders.map(async (order) => {
+        try {
+          // Buscar evento associado
+          const event = order.eventId ? await db.select().from(events).where(eq(events.id, order.eventId)).limit(1) : null;
+          const eventData = event && event.length > 0 ? event[0] : null;
+          
+          // Buscar usuário associado
+          const user = order.userId ? await db.select().from(users).where(eq(users.id, order.userId)).limit(1) : null;
+          const userData = user && user.length > 0 ? user[0] : null;
+          
+          return {
+            id: order.id,
+            status: order.status,
+            eventId: order.eventId,
+            totalAmount: order.totalAmount,
+            guestCount: order.guestCount,
+            date: order.date || order.createdAt,
+            menuSelection: order.menuSelection,
+            event: eventData ? {
+              id: eventData.id,
+              title: eventData.title,
+              description: eventData.description,
+              date: eventData.date,
+              status: eventData.status
+            } : null,
+            user: userData ? {
+              id: userData.id,
+              name: userData.name,
+              email: userData.email,
+              role: userData.role
+            } : null
+          };
+        } catch (error) {
+          console.error(`[Storage] Erro ao processar pedido ${order.id}:`, error);
+          // Retornar pedido básico se houver erro ao buscar dados relacionados
+          return {
+            id: order.id,
+            status: order.status,
+            eventId: order.eventId,
+            totalAmount: order.totalAmount,
+            guestCount: order.guestCount,
+            date: order.date || order.createdAt,
+            menuSelection: order.menuSelection,
+            event: null,
+            user: null
+          };
         }
-      ];
+      }));
       
-      // Log detalhado para debugging
-      console.log(`[Storage] Retornando 8 pedidos garantidos com todos os detalhes do mês atual (${currentMonth + 1}/${currentYear})`);
-      console.log(`[Storage] Exemplo de pedido #1: Coffee Break Empresarial - R$ 2.500,00 - Data: ${pedidosGarantidos[0].date}`);
-      console.log(`[Storage] Exemplo de pedido #2: Coffee Break para Treinamentos - R$ 1.000,00 - Data: ${pedidosGarantidos[1].date}`);
+      console.log(`[Storage] Processados ${processedOrders.length} pedidos reais com dados relacionados`);
       
-      return pedidosGarantidos;
-    } catch (erro) {
-      console.error("[Storage] Erro buscando pedidos:", erro);
+      return processedOrders;
+    } catch (error) {
+      console.error("[Storage] Erro ao buscar pedidos confirmados:", error);
       return [];
     }
   }
@@ -904,6 +849,15 @@ export class DatabaseStorage implements IStorage {
     const [updatedOrder] = await db
       .update(orders)
       .set({ adminNotes: notes, updatedAt: new Date() })
+      .where(eq(orders.id, id))
+      .returning();
+    return updatedOrder;
+  }
+
+  async updateOrderBoleto(id: number, boletoUrl: string): Promise<Order | undefined> {
+    const [updatedOrder] = await db
+      .update(orders)
+      .set({ boletoUrl: boletoUrl, updatedAt: new Date() })
       .where(eq(orders.id, id))
       .returning();
     return updatedOrder;
@@ -963,6 +917,49 @@ export class DatabaseStorage implements IStorage {
 
   async deleteRoom(id: number): Promise<void> {
     await db.delete(rooms).where(eq(rooms.id, id));
+  }
+
+  // Categories methods
+  async getAllCategories(): Promise<Category[]> {
+    return await db.select().from(categories).orderBy(categories.name);
+  }
+
+  async createCategory(categoryData: InsertCategory): Promise<Category> {
+    const [category] = await db.insert(categories).values(categoryData).returning();
+    if (!category) {
+      throw new Error("Falha ao criar categoria");
+    }
+    notifyDataChange();
+    return category;
+  }
+
+  async updateCategory(id: number, categoryData: Partial<InsertCategory>): Promise<Category | undefined> {
+    const [updatedCategory] = await db
+      .update(categories)
+      .set({ ...categoryData, updatedAt: new Date() })
+      .where(eq(categories.id, id))
+      .returning();
+    if (updatedCategory) notifyDataChange();
+    return updatedCategory;
+  }
+
+  async deleteCategory(id: number): Promise<void> {
+    await db.delete(categories).where(eq(categories.id, id));
+    notifyDataChange();
+  }
+
+  // Propriedade interna para armazenar permissões em memória
+  private _permissions: any[] = undefined;
+
+  // Propriedade interna para armazenar roles em memória
+  private _roles: any[] = undefined;
+
+  async updateRole({ id, name, permissions }: { id: number, name: string, permissions: string[] }): Promise<any> {
+    if (!this._roles) await this.getRoles();
+    const idx = this._roles.findIndex(r => r.id === id);
+    if (idx === -1) throw new Error('Role não encontrado');
+    this._roles[idx] = { ...this._roles[idx], name, permissions };
+    return this._roles[idx];
   }
 }
 

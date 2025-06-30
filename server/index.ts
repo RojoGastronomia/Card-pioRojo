@@ -15,6 +15,7 @@ import { registerSSERoute, setupPeriodicUpdates, sseManager } from "./sse";
 import { setupRealTimeUpdates } from "./realtime-updates";
 import path from "path";
 import { fileURLToPath } from "url";
+import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,14 +34,19 @@ process.on("unhandledRejection", (reason, promise) => {
   logger.fatal({ error: reason }, "Promise rejection não tratada");
 });
 
-// Forçar log no console para debugging
-console.log("==== INICIANDO SERVIDOR ====");
+try {
+  console.log("\n==== INICIANDO SERVIDOR ====");
 console.log("NODE_ENV:", process.env.NODE_ENV);
-console.log(
-  "DATABASE_URL:",
-  process.env.DATABASE_URL ? "Configurado (protegido)" : "NÃO CONFIGURADO",
-);
-console.log("PORT:", process.env.PORT || 5000);
+  console.log("DATABASE_URL:", process.env.DATABASE_URL || "NÃO CONFIGURADO");
+  console.log("CWD:", process.cwd());
+  console.log("Existe .env aqui?", fs.existsSync(path.join(process.cwd(), ".env")));
+  console.log("PORT lida do .env:", process.env.PORT);
+  console.log("===========================\n");
+
+  if (process.env.NODE_ENV === "production") {
+    console.log("Servidor não iniciado - ambiente de produção");
+    process.exit(1);
+  }
 
 const app = express();
 
@@ -53,6 +59,8 @@ app.use(
   cors({
     origin: true, // Permitir todas as origens em desenvolvimento
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
   }),
 );
 
@@ -60,16 +68,43 @@ app.use(
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "dev-session-secret",
-    resave: false,
-    saveUninitialized: false,
+    resave: true,
+    saveUninitialized: true,
     store: storage.sessionStore,
     cookie: {
       secure: false, // Desativar secure para desenvolvimento local
       sameSite: "lax",
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      httpOnly: true,
+      path: "/",
+      domain: undefined, // Remover restrição de domínio
     },
+      name: 'connect.sid', // Nome do cookie de sessão
   }),
 );
+
+// Adicionar middleware para log de sessão
+app.use((req, res, next) => {
+  console.log('[Session]', {
+    sessionID: req.sessionID,
+    isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
+    user: req.user ? { id: req.user.id, email: req.user.email } : null,
+    cookies: req.cookies,
+    headers: {
+      origin: req.headers.origin,
+      referer: req.headers.referer,
+      cookie: req.headers.cookie,
+    }
+  });
+
+  // Adicionar headers CORS para cookies
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With, Cookie');
+
+  next();
+});
 
 // Initialize Passport
 app.use(passport.initialize());
@@ -223,6 +258,7 @@ if (
 } else {
   console.log("Servidor não iniciado - ambiente de produção");
 }
-
-// Exportar app para uso em ambiente serverless
-export default app;
+} catch (error) {
+  console.error("ERRO AO INICIAR SERVIDOR:", error);
+  process.exit(1);
+}

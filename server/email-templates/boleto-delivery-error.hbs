@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Erro no Envio do Boleto</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #dc3545;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+            color: white;
+        }
+        .content {
+            background-color: #ffffff;
+            padding: 30px;
+            border: 1px solid #e9ecef;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            border-radius: 0 0 8px 8px;
+            font-size: 14px;
+            color: #6c757d;
+        }
+        .error-info {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .error-info h3 {
+            color: #721c24;
+            margin-top: 0;
+        }
+        .order-details {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .order-details h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .order-details p {
+            margin: 8px 0;
+        }
+        .customer-info {
+            background-color: #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .action-required {
+            background-color: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .action-required h3 {
+            color: #856404;
+            margin-top: 0;
+        }
+        .admin-link {
+            display: inline-block;
+            background-color: #dc3545;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        .admin-link:hover {
+            background-color: #c82333;
+        }
+        .error-details {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>❌ Erro no Envio do Boleto</h1>
+        <p>Falha ao enviar boleto para o cliente</p>
+    </div>
+
+    <div class="content">
+        <div class="error-info">
+            <h3>⚠️ Problema Detectado</h3>
+            <p><strong>O boleto para o pedido #{{orderId}} não foi enviado com sucesso para o cliente.</strong></p>
+            <p>É necessário verificar o problema e reenviar o boleto manualmente.</p>
+        </div>
+
+        <div class="order-details">
+            <h3>📋 Detalhes do Pedido #{{orderId}}</h3>
+            <p><strong>Evento:</strong> {{eventName}}</p>
+            <p><strong>Data do Evento:</strong> {{eventDate}}</p>
+            <p><strong>Valor Total:</strong> R$ {{totalAmount}}</p>
+            <p><strong>Data da Tentativa de Envio:</strong> {{attemptDate}}</p>
+        </div>
+
+        <div class="customer-info">
+            <h3>👤 Cliente Afetado</h3>
+            <p><strong>Nome:</strong> {{customerName}}</p>
+            <p><strong>Email:</strong> {{customerEmail}}</p>
+            <p><strong>Status do Email:</strong> <span style="color: #dc3545;">❌ Falha no envio</span></p>
+        </div>
+
+        <div class="error-details">
+            <h4>🔍 Detalhes do Erro:</h4>
+            <p><strong>Erro:</strong> {{errorMessage}}</p>
+            <p><strong>Código:</strong> {{errorCode}}</p>
+            <p><strong>Timestamp:</strong> {{errorTimestamp}}</p>
+        </div>
+
+        <div class="action-required">
+            <h3>🛠️ Ação Necessária</h3>
+            <ol>
+                <li>Verifique se o email do cliente está correto</li>
+                <li>Teste o envio manual do boleto</li>
+                <li>Se necessário, entre em contato direto com o cliente</li>
+                <li>Atualize o status do pedido no sistema</li>
+            </ol>
+            
+            <a href="{{adminPanelUrl}}" class="admin-link" target="_blank">
+                🔗 Acessar Painel Administrativo
+            </a>
+        </div>
+
+        <div class="action-required">
+            <h3>📧 Alternativas de Contato</h3>
+            <ul>
+                <li><strong>Email direto:</strong> {{customerEmail}}</li>
+                <li><strong>Telefone:</strong> {{customerPhone}}</li>
+                <li><strong>WhatsApp:</strong> {{customerWhatsApp}}</li>
+            </ul>
+            <p><strong>Sugestão:</strong> Entre em contato direto com o cliente para confirmar o email correto e reenviar o boleto.</p>
+        </div>
+
+        <p><strong>Importante:</strong> Este erro pode afetar o pagamento do pedido. Resolva o problema o mais rápido possível para não impactar o evento.</p>
+    </div>
+
+    <div class="footer">
+        <p>Este é um email automático do sistema SiteCard.</p>
+        <p>Em caso de dúvidas, entre em contato com o suporte técnico.</p>
+        <p>© 2024 Rojo Gastronomia. Todos os direitos reservados.</p>
+    </div>
+</body>
+</html> 

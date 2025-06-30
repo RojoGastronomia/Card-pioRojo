@@ -21,6 +21,7 @@ import {
   DialogTitle,
   DialogFooter,
   DialogClose,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -31,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/utils";
-import { Search, Filter, PencilLine, Calendar, User as UserIcon, Trash2 } from "lucide-react";
+import { Search, Filter, PencilLine, Calendar, User as UserIcon, Trash2, Upload, FileText, X, ExternalLink } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
@@ -45,6 +46,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { useLanguage } from "@/context/language-context";
 
 export default function AdminOrdersPage() {
   const { toast } = useToast();
@@ -53,16 +55,20 @@ export default function AdminOrdersPage() {
   const [dateFilter, setDateFilter] = useState<string | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [orderStatusValue, setOrderStatusValue] = useState<string>("");
+  const [orderStatusValue, setOrderStatusValue] = useState("");
   const [adminNotesValue, setAdminNotesValue] = useState("");
   const [isSavingAdminNotes, setIsSavingAdminNotes] = useState(false);
+  const [selectedBoletoFile, setSelectedBoletoFile] = useState<File | null>(null);
+  const [boletoUploadProgress, setBoletoUploadProgress] = useState(0);
+  const { t } = useLanguage();
 
   // Fetch orders
   const { 
     data: orders, 
     isLoading: ordersLoading, 
     isError: ordersError, 
-    error: ordersFetchError 
+    error: ordersFetchError,
+    refetch: refetchOrders
   } = useQuery<Order[]>({
     queryKey: ["/api/orders"],
   });
@@ -181,21 +187,25 @@ export default function AdminOrdersPage() {
 
   // Get status badge
   const getStatusBadge = (status: string) => {
-    const statusStyles: Record<string, string> = {
+    const statusConfig = {
       'pending': 'bg-yellow-100 text-yellow-800',
+      'aguardando_pagamento': 'bg-orange-100 text-orange-800',
       'confirmed': 'bg-green-100 text-green-800',
       'cancelled': 'bg-red-100 text-red-800',
       'completed': 'bg-blue-100 text-blue-800',
     };
-    const statusNames: Record<string, string> = {
+
+    const statusLabels = {
       'pending': 'Pendente',
+      'aguardando_pagamento': 'Aguardando Pagamento',
       'confirmed': 'Confirmado',
       'cancelled': 'Cancelado',
       'completed': 'Concluído',
     };
+
     return (
-      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusStyles[status] || 'bg-gray-100 text-gray-800'}`}>
-        {statusNames[status] || status}
+      <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusConfig[status as keyof typeof statusConfig] || statusConfig.pending}`}>
+        {statusLabels[status as keyof typeof statusLabels] || status}
       </span>
     );
   };
@@ -219,18 +229,76 @@ export default function AdminOrdersPage() {
   // Handle view order details
   const handleViewOrderDetails = (order: Order) => {
     setSelectedOrder(order);
+    setSelectedBoletoFile(null);
+    setBoletoUploadProgress(0);
     setOrderStatusValue(order.status);
     setShowDetailsDialog(true);
   };
 
   // Handle order status update
-  const handleStatusUpdate = () => {
-    if (!selectedOrder || !orderStatusValue) return;
-    
-    updateOrderStatusMutation.mutate({
-      orderId: selectedOrder.id,
-      status: orderStatusValue,
-    });
+  const handleStatusUpdate = async () => {
+    if (!selectedOrder) return;
+
+    try {
+      let updatedOrder = selectedOrder;
+
+      // Se há um boleto selecionado, fazer upload primeiro
+      if (selectedBoletoFile) {
+        await handleBoletoUpload();
+      }
+
+      // Atualizar status do pedido
+      const newStatus = selectedBoletoFile ? "aguardando_pagamento" : orderStatusValue;
+      
+      const response = await apiRequest("PUT", `/api/orders/${selectedOrder.id}/status`, {
+        status: newStatus,
+        adminNotes: adminNotesValue
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setSelectedOrder(result);
+        setOrderStatusValue(result.status);
+        setAdminNotesValue("");
+        
+        // Atualizar a lista de pedidos
+        queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+        
+        toast({
+          title: "Status atualizado",
+          description: selectedBoletoFile 
+            ? "Boleto enviado e status alterado para 'Aguardando Pagamento'" 
+            : "Status do pedido atualizado com sucesso",
+        });
+        
+        setShowDetailsDialog(false);
+      } else {
+        throw new Error("Erro ao atualizar status");
+      }
+    } catch (error) {
+      console.error("[Status Update] Erro:", error);
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteOrder = async (orderId: string) => {
+    try {
+      await deleteOrderMutation.mutateAsync(Number(orderId));
+      toast({
+        title: t('admin', 'orderDeleted'),
+        description: t('admin', 'orderDeletedSuccess'),
+      });
+    } catch (error) {
+      toast({
+        title: t('admin', 'deleteError'),
+        description: error instanceof Error ? error.message : String(error),
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSaveAdminNotes = async () => {
@@ -247,13 +315,13 @@ export default function AdminOrdersPage() {
       setAdminNotesValue(""); // Limpa o campo após atualizar o estado
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       toast({
-        title: "Observação salva",
-        description: "Observação do administrador salva com sucesso.",
+        title: t('admin', 'notesSaved'),
+        description: t('admin', 'notesSavedSuccess'),
       });
     } catch (error) {
       toast({
-        title: "Erro ao salvar observação",
-        description: error instanceof Error ? error.message : "Erro desconhecido.",
+        title: t('admin', 'saveNotesError'),
+        description: error instanceof Error ? error.message : String(error),
         variant: "destructive",
       });
     } finally {
@@ -261,10 +329,82 @@ export default function AdminOrdersPage() {
     }
   };
 
+  const handleBoletoUpload = async () => {
+    if (!selectedBoletoFile || !selectedOrder) return;
+
+    try {
+      console.log("Fazendo upload do boleto...");
+      console.log("Arquivo selecionado:", selectedBoletoFile);
+      console.log("Nome do arquivo:", selectedBoletoFile.name);
+      console.log("Tamanho do arquivo:", selectedBoletoFile.size);
+      console.log("Tipo do arquivo:", selectedBoletoFile.type);
+      
+      const formData = new FormData();
+      formData.append("boleto", selectedBoletoFile);
+      
+      console.log("FormData criado, verificando conteúdo:");
+      for (let [key, value] of formData.entries()) {
+        console.log(`FormData key: ${key}, value:`, value);
+      }
+
+      const response = await fetch(`http://localhost:5000/api/orders/${selectedOrder.id}/upload-boleto`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+
+      console.log("Resposta do servidor:", response.status, response.statusText);
+      console.log("Headers da requisição enviados:", {
+        'Content-Type': 'multipart/form-data',
+        'Content-Length': formData.get('boleto') ? 'present' : 'missing'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Erro detalhado:", errorData);
+        throw new Error(errorData.message || 'Erro no upload do boleto');
+      }
+
+      const uploadResponse = await response.json();
+      console.log("Upload bem-sucedido:", uploadResponse);
+      setSelectedOrder(uploadResponse);
+      setSelectedBoletoFile(null);
+      setBoletoUploadProgress(0);
+      
+      toast({
+        title: "Sucesso!",
+        description: "Boleto enviado com sucesso!",
+      });
+      
+      refetchOrders();
+    } catch (error) {
+      console.error("Erro no upload:", error);
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Erro ao enviar boleto",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const statusLabels = {
+    'pending': t('admin', 'statusPending'),
+    'processing': t('admin', 'statusProcessing'),
+    'completed': t('admin', 'statusCompleted'),
+    'cancelled': t('admin', 'statusCancelled')
+  };
+
+  const handleCloseDetailsDialog = () => {
+    setShowDetailsDialog(false);
+    setSelectedOrder(null);
+    setSelectedBoletoFile(null);
+    setBoletoUploadProgress(0);
+  };
+
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Gerenciamento de Pedidos</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t('admin', 'orders')}</h1>
       </div>
 
       {/* Status Tabs */}
@@ -272,6 +412,7 @@ export default function AdminOrdersPage() {
         <TabsList>
           <TabsTrigger value="all" onClick={() => setStatusFilter(null)}>Todos</TabsTrigger>
           <TabsTrigger value="pending" onClick={() => setStatusFilter("pending")}>Pendentes</TabsTrigger>
+          <TabsTrigger value="aguardando_pagamento" onClick={() => setStatusFilter("aguardando_pagamento")}>Aguardando Pagamento</TabsTrigger>
           <TabsTrigger value="confirmed" onClick={() => setStatusFilter("confirmed")}>Confirmados</TabsTrigger>
           <TabsTrigger value="completed" onClick={() => setStatusFilter("completed")}>Concluídos</TabsTrigger>
           <TabsTrigger value="cancelled" onClick={() => setStatusFilter("cancelled")}>Cancelados</TabsTrigger>
@@ -303,6 +444,9 @@ export default function AdminOrdersPage() {
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setStatusFilter("pending")}>
                     Pendente
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setStatusFilter("aguardando_pagamento")}>
+                    Aguardando Pagamento
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setStatusFilter("confirmed")}>
                     Confirmado
@@ -379,7 +523,7 @@ export default function AdminOrdersPage() {
                           size="icon"
                           onClick={() => {
                             if (window.confirm('Tem certeza que deseja excluir este pedido?')) {
-                              deleteOrderMutation.mutate(order.id);
+                              handleDeleteOrder(String(order.id));
                             }
                           }}
                         >
@@ -401,10 +545,13 @@ export default function AdminOrdersPage() {
 
       {/* Order Details Dialog */}
       {selectedOrder && (
-        <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+        <Dialog open={showDetailsDialog} onOpenChange={handleCloseDetailsDialog}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Detalhes do Pedido #{selectedOrder.id}</DialogTitle>
+              <DialogDescription>
+                Visualize e gerencie os detalhes deste pedido, incluindo status, observações e anexos.
+              </DialogDescription>
             </DialogHeader>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -466,6 +613,7 @@ export default function AdminOrdersPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="pending">Pendente</SelectItem>
+                        <SelectItem value="aguardando_pagamento">Aguardando Pagamento</SelectItem>
                         <SelectItem value="confirmed">Confirmado</SelectItem>
                         <SelectItem value="completed">Concluído</SelectItem>
                         <SelectItem value="cancelled">Cancelado</SelectItem>
@@ -525,15 +673,222 @@ export default function AdminOrdersPage() {
               </Button>
             </div>
             
+            {/* Upload de Boleto */}
+            <div className="mt-4">
+              <h3 className="text-sm font-medium text-gray-500">Anexar Boleto (PDF)</h3>
+              
+              {/* Botão de upload elegante */}
+              <div className="mt-2">
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setSelectedBoletoFile(file);
+                      toast({
+                        title: "Boleto selecionado",
+                        description: `${file.name} foi anexado com sucesso.`,
+                      });
+                      
+                      // Teste automático do upload básico
+                      setTimeout(async () => {
+                        try {
+                          console.log("=== TESTE AUTOMÁTICO DE UPLOAD ===");
+                          const testFormData = new FormData();
+                          testFormData.append("boleto", file);
+                          
+                          const testResponse = await fetch(`http://localhost:5000/api/test-upload`, {
+                            method: 'POST',
+                            body: testFormData,
+                            credentials: 'include'
+                          });
+                          
+                          console.log("Teste automático - Status:", testResponse.status);
+                          const testResult = await testResponse.json();
+                          console.log("Teste automático - Resultado:", testResult);
+                          
+                          if (testResponse.ok) {
+                            console.log("✅ Teste de upload básico funcionou!");
+                          } else {
+                            console.log("❌ Teste de upload básico falhou:", testResult.message);
+                          }
+                        } catch (error) {
+                          console.error("❌ Erro no teste automático:", error);
+                        }
+                      }, 1000);
+                    }
+                  }}
+                  className="hidden"
+                  id="boleto-upload"
+                />
+                <label
+                  htmlFor="boleto-upload"
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary cursor-pointer transition-colors"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Escolher Arquivo PDF
+                </label>
+              </div>
+              
+              {selectedBoletoFile && (
+                <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center">
+                    <FileText className="h-5 w-5 text-green-600 mr-2" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-green-800">
+                        {selectedBoletoFile.name}
+                      </p>
+                      <p className="text-xs text-green-600 mt-1">
+                        {(selectedBoletoFile.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedBoletoFile(null)}
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-green-600 mt-2">
+                    Clique em "Atualizar Status" para enviar o boleto e alterar o status para "Aguardando Pagamento"
+                  </p>
+                  
+                  {/* Botão de teste */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={async () => {
+                      try {
+                        console.log("=== TESTE DE UPLOAD ===");
+                        const formData = new FormData();
+                        formData.append("boleto", selectedBoletoFile);
+                        
+                        const response = await fetch(`http://localhost:5000/api/test-upload`, {
+                          method: 'POST',
+                          body: formData,
+                          credentials: 'include'
+                        });
+                        
+                        console.log("Teste - Status:", response.status);
+                        const result = await response.json();
+                        console.log("Teste - Resultado:", result);
+                        
+                        if (response.ok) {
+                          toast({
+                            title: "Sucesso",
+                            description: "Teste de upload funcionou!"
+                          });
+                        } else {
+                          toast({
+                            title: "Erro",
+                            description: `Teste falhou: ${result.message}`,
+                            variant: "destructive"
+                          });
+                        }
+                      } catch (error) {
+                        console.error("Erro no teste:", error);
+                        toast({
+                          title: "Erro",
+                          description: "Erro no teste de upload",
+                          variant: "destructive"
+                        });
+                      }
+                    }}
+                  >
+                    Testar Upload
+                  </Button>
+                  
+                  {/* Botão de teste simples */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 ml-2"
+                    onClick={async () => {
+                      try {
+                        console.log("=== TESTE SIMPLES ===");
+                        const formData = new FormData();
+                        formData.append("boleto", selectedBoletoFile);
+                        
+                        const response = await fetch(`http://localhost:5000/api/simple-test`, {
+                          method: 'POST',
+                          body: formData,
+                          credentials: 'include'
+                        });
+                        
+                        console.log("Teste simples - Status:", response.status);
+                        const result = await response.json();
+                        console.log("Teste simples - Resultado:", result);
+                        
+                        toast.info(`Teste simples: ${result.message}`);
+                      } catch (error) {
+                        console.error("Erro no teste simples:", error);
+                        toast.error("Erro no teste simples");
+                      }
+                    }}
+                  >
+                    Teste Simples
+                  </Button>
+                </div>
+              )}
+              
+              {selectedOrder.boletoUrl && (
+                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center">
+                    <FileText className="h-5 w-5 text-blue-600 mr-2" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-blue-800">
+                        Boleto já anexado
+                      </p>
+                      <p className="text-xs text-blue-600 mt-1">
+                        Clique no link abaixo para visualizar
+                      </p>
+                    </div>
+                  </div>
+                  <a
+                    href={selectedOrder.boletoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center mt-2 text-sm text-blue-600 hover:text-blue-800 underline"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    Visualizar boleto atual
+                  </a>
+                </div>
+              )}
+              
+              {boletoUploadProgress > 0 && boletoUploadProgress < 100 && (
+                <div className="mt-3">
+                  <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
+                    <span>Enviando boleto...</span>
+                    <span>{boletoUploadProgress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-primary h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${boletoUploadProgress}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
+            </div>
+            
             <DialogFooter className="mt-6">
               <DialogClose asChild>
                 <Button variant="outline">Fechar</Button>
               </DialogClose>
               <Button 
                 onClick={handleStatusUpdate}
-                disabled={selectedOrder.status === orderStatusValue || updateOrderStatusMutation.isPending}
+                disabled={(!selectedBoletoFile && selectedOrder.status === orderStatusValue) || updateOrderStatusMutation.isPending}
               >
-                {updateOrderStatusMutation.isPending ? "Atualizando..." : "Atualizar Status"}
+                {updateOrderStatusMutation.isPending ? "Atualizando..." : 
+                 selectedBoletoFile ? "Enviar Boleto e Atualizar Status" : "Atualizar Status"}
               </Button>
             </DialogFooter>
           </DialogContent>

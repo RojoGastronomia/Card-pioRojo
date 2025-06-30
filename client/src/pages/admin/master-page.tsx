@@ -420,6 +420,80 @@ export default function MasterPage() {
               </div>
             )}
 
+            {selectedAction === 'settings' && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Configurações Globais</h2>
+                <form className="space-y-2 max-w-md">
+                  <div>
+                    <label className="block text-sm font-medium">Nome do Sistema</label>
+                    <input type="text" className="w-full border rounded px-2 py-1" placeholder="Ex: Cardápio Microsoft" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium">E-mail de contato</label>
+                    <input type="email" className="w-full border rounded px-2 py-1" placeholder="contato@email.com" />
+                  </div>
+                  <Button type="submit" className="mt-2">Salvar</Button>
+                </form>
+                <p className="text-xs text-muted-foreground">(Exemplo de formulário. Integração real pode ser feita depois.)</p>
+              </div>
+            )}
+
+            {selectedAction === 'permissions' && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Permissões</h2>
+                <p className="text-sm">Gerencie as permissões de acesso dos usuários do sistema.</p>
+                <PermissionsSection />
+              </div>
+            )}
+
+            {selectedAction === 'roles' && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Cargos/Funções</h2>
+                <p className="text-sm">Gerencie os cargos e funções atribuídos aos usuários. Veja as permissões de cada cargo abaixo.</p>
+                <RolesSection />
+              </div>
+            )}
+
+            {selectedAction === 'tokens' && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Tokens de API</h2>
+                <p className="text-sm">Visualize e gerencie os tokens de acesso à API.</p>
+                <p className="text-xs text-muted-foreground">(Visualização inicial. Funcionalidade completa em breve.)</p>
+              </div>
+            )}
+
+            {selectedAction === 'resources' && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Uso de Recursos</h2>
+                <p className="text-sm">Acompanhe o uso detalhado de recursos do sistema.</p>
+                <p className="text-xs text-muted-foreground">(Visualização inicial. Funcionalidade completa em breve.)</p>
+              </div>
+            )}
+
+            {selectedAction === 'alerts' && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Alertas</h2>
+                <p className="text-sm">Visualize e gerencie alertas do sistema.</p>
+                <p className="text-xs text-muted-foreground">(Visualização inicial. Funcionalidade completa em breve.)</p>
+              </div>
+            )}
+
+            {selectedAction === 'console' && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Console Administrativo</h2>
+                <p className="text-sm">Execute comandos administrativos diretamente pelo painel.</p>
+                <p className="text-xs text-muted-foreground">(Visualização inicial. Funcionalidade completa em breve.)</p>
+              </div>
+            )}
+
+            {selectedAction === 'cache' && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Gerenciamento de Cache</h2>
+                <p className="text-sm">Limpe ou atualize o cache do sistema.</p>
+                <p className="text-xs text-muted-foreground">(Visualização inicial. Funcionalidade completa em breve.)</p>
+              </div>
+            )}
+
             {selectedAction && !['logs', 'performance'].includes(selectedAction) && (
               <p className="text-center text-muted-foreground">Visualização para "{selectedAction}" ainda não implementada.</p>
             )}
@@ -427,5 +501,409 @@ export default function MasterPage() {
         </DialogContent>
       </Dialog>
     </main>
+  );
+}
+
+function PermissionsSection() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mb-4">
+      <Button onClick={() => setOpen(true)} className="mb-2">Nova Permissão</Button>
+      <PermissionModal open={open} onClose={() => setOpen(false)} />
+      <PermissionsList />
+    </div>
+  );
+}
+
+function PermissionModal({ open, onClose }: { open: boolean, onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [error, setError] = useState("");
+  const mutation = useMutation({
+    mutationFn: async (data: { name: string; description: string }) => {
+      const res = await fetch("/api/admin/access/permissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error((await res.json()).message || "Erro ao criar permissão");
+      return res.json();
+    },
+    onSuccess: () => {
+      setName("");
+      setDescription("");
+      setError("");
+      queryClient.invalidateQueries("permissions");
+      onClose();
+    },
+    onError: (err: any) => setError(err.message || "Erro ao criar permissão"),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Nova Permissão</DialogTitle>
+        </DialogHeader>
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={e => {
+            e.preventDefault();
+            if (!name || !description) {
+              setError("Preencha todos os campos");
+              return;
+            }
+            mutation.mutate({ name, description });
+          }}
+        >
+          <input
+            type="text"
+            className="border rounded px-2 py-1 w-full"
+            placeholder="Nome (ex: read:users)"
+            value={name}
+            onChange={e => setName(e.target.value)}
+          />
+          <input
+            type="text"
+            className="border rounded px-2 py-1 w-full"
+            placeholder="Descrição"
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+          />
+          <div className="flex gap-2 items-center">
+            <Button type="submit" disabled={mutation.isPending} className="min-w-[120px]">{mutation.isPending ? "Adicionando..." : "Adicionar"}</Button>
+            {error && <span className="text-red-600 text-xs ml-2">{error}</span>}
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PermissionsList() {
+  const queryClient = useQueryClient();
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ["permissions"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/access/permissions");
+      if (!res.ok) throw new Error("Erro ao buscar permissões");
+      return res.json();
+    },
+    refetchOnWindowFocus: false,
+  });
+
+  const [toDelete, setToDelete] = useState<number|null>(null);
+  const mutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/admin/access/permissions/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).message || "Erro ao remover permissão");
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries("permissions"),
+  });
+
+  if (isLoading) return <p className="text-muted-foreground">Carregando permissões...</p>;
+  if (isError) return <p className="text-red-600">Erro: {error.message}</p>;
+  if (!data || data.length === 0) return <p className="text-muted-foreground">Nenhuma permissão encontrada.</p>;
+
+  return (
+    <div>
+      <ul className="divide-y border rounded bg-muted/30">
+        {data.map((perm: any) => (
+          <li key={perm.id} className="p-3 flex flex-col md:flex-row md:items-center gap-2 md:gap-4 group hover:bg-muted/50 transition">
+            <span className="font-mono text-xs text-primary w-32">{perm.name}</span>
+            <span className="text-sm flex-1">{perm.description}</span>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="ml-auto px-3 py-1 h-7 text-xs"
+              onClick={() => setToDelete(perm.id)}
+            >
+              Remover
+            </Button>
+          </li>
+        ))}
+      </ul>
+      <Dialog open={!!toDelete} onOpenChange={() => setToDelete(null)}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Remover permissão?</DialogTitle>
+          </DialogHeader>
+          <div className="mb-4">Tem certeza que deseja remover esta permissão?</div>
+          <div className="flex gap-2">
+            <Button variant="destructive" size="sm" onClick={() => { mutation.mutate(toDelete!); setToDelete(null); }}>Remover</Button>
+            <Button variant="outline" size="sm" onClick={() => setToDelete(null)}>Cancelar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function RolesSection() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mb-4">
+      <Button onClick={() => setOpen(true)} className="mb-2">Novo Cargo</Button>
+      <RoleModal open={open} onClose={() => setOpen(false)} />
+      <RolesList />
+    </div>
+  );
+}
+
+function RoleModal({ open, onClose }: { open: boolean, onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState("");
+  const [selectedPerms, setSelectedPerms] = useState<string[]>([]);
+  const [error, setError] = useState("");
+  const { data: permissions, isLoading } = useQuery({
+    queryKey: ["permissions"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/access/permissions");
+      if (!res.ok) throw new Error("Erro ao buscar permissões");
+      return res.json();
+    },
+    refetchOnWindowFocus: false,
+  });
+  const mutation = useMutation({
+    mutationFn: async (data: { name: string; permissions: string[] }) => {
+      const res = await fetch("/api/admin/access/roles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error((await res.json()).message || "Erro ao criar cargo");
+      return res.json();
+    },
+    onSuccess: () => {
+      setName("");
+      setSelectedPerms([]);
+      setError("");
+      queryClient.invalidateQueries("roles");
+      onClose();
+    },
+    onError: (err: any) => setError(err.message || "Erro ao criar cargo"),
+  });
+
+  if (isLoading) return null;
+  if (!permissions) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Novo Cargo</DialogTitle>
+        </DialogHeader>
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={e => {
+            e.preventDefault();
+            if (!name) {
+              setError("Informe o nome do cargo");
+              return;
+            }
+            mutation.mutate({ name, permissions: selectedPerms });
+          }}
+        >
+          <input
+            type="text"
+            className="border rounded px-2 py-1 w-full"
+            placeholder="Nome do cargo (ex: admin)"
+            value={name}
+            onChange={e => setName(e.target.value)}
+          />
+          <div className="flex flex-wrap gap-2">
+            {permissions.map((perm: any) => (
+              <label key={perm.name} className="flex items-center gap-1 text-xs border rounded px-2 py-1 bg-white">
+                <input
+                  type="checkbox"
+                  checked={selectedPerms.includes(perm.name)}
+                  onChange={e => {
+                    if (e.target.checked) setSelectedPerms([...selectedPerms, perm.name]);
+                    else setSelectedPerms(selectedPerms.filter(p => p !== perm.name));
+                  }}
+                />
+                <span className="font-mono text-primary">{perm.name}</span>
+                <span className="text-muted-foreground">({perm.description})</span>
+              </label>
+            ))}
+          </div>
+          <div className="flex gap-2 items-center">
+            <Button type="submit" disabled={mutation.isPending} className="min-w-[120px]">{mutation.isPending ? "Adicionando..." : "Adicionar Cargo"}</Button>
+            {error && <span className="text-red-600 text-xs ml-2">{error}</span>}
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RolesList() {
+  const queryClient = useQueryClient();
+  const { data: roles, isLoading: loadingRoles, isError: errorRoles, error: rolesError } = useQuery({
+    queryKey: ["roles"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/access/roles");
+      if (!res.ok) throw new Error("Erro ao buscar cargos");
+      return res.json();
+    },
+    refetchOnWindowFocus: false,
+  });
+  const { data: permissions, isLoading: loadingPerms, isError: errorPerms, error: permsError } = useQuery({
+    queryKey: ["permissions"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/access/permissions");
+      if (!res.ok) throw new Error("Erro ao buscar permissões");
+      return res.json();
+    },
+    refetchOnWindowFocus: false,
+  });
+  const [editRole, setEditRole] = useState<any|null>(null);
+  const [toDelete, setToDelete] = useState<number|null>(null);
+  const mutationDelete = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/admin/access/roles/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).message || "Erro ao remover cargo");
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries("roles"),
+  });
+
+  if (loadingRoles || loadingPerms) return <p className="text-muted-foreground">Carregando cargos e permissões...</p>;
+  if (errorRoles) return <p className="text-red-600">Erro ao buscar cargos: {rolesError.message}</p>;
+  if (errorPerms) return <p className="text-red-600">Erro ao buscar permissões: {permsError.message}</p>;
+  if (!roles || roles.length === 0) return <p className="text-muted-foreground">Nenhum cargo encontrado.</p>;
+
+  // Helper para buscar descrição da permissão
+  const getPermDesc = (permName: string) => {
+    const perm = permissions.find((p: any) => p.name === permName);
+    return perm ? perm.description : permName;
+  };
+
+  return (
+    <div className="space-y-4">
+      {roles.map((role: any) => (
+        <div key={role.id} className="border rounded p-4 bg-muted/30 flex flex-col md:flex-row md:items-center gap-2 md:gap-6">
+          <div className="flex-1">
+            <div className="font-semibold text-primary mb-1">{role.name}</div>
+            <div className="text-xs text-muted-foreground mb-2">ID: {role.id}</div>
+            <div>
+              <span className="font-medium">Permissões:</span>
+              <ul className="list-disc ml-6 mt-1">
+                {role.permissions.length === 0 ? (
+                  <li className="text-muted-foreground">Nenhuma permissão associada.</li>
+                ) : (
+                  role.permissions.map((perm: string) => (
+                    <li key={perm} className="flex gap-2 items-center">
+                      <span className="font-mono text-xs text-primary">{perm}</span>
+                      <span className="text-xs text-muted-foreground">{getPermDesc(perm)}</span>
+                    </li>
+                  ))
+                )}
+              </ul>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 min-w-[120px]">
+            <Button variant="outline" size="sm" onClick={() => setEditRole(role)}>Editar</Button>
+            <Button variant="destructive" size="sm" onClick={() => setToDelete(role.id)}>Remover</Button>
+          </div>
+        </div>
+      ))}
+      {/* Modal de edição de cargo */}
+      <EditRoleModal role={editRole} permissions={permissions} onClose={() => setEditRole(null)} />
+      {/* Confirmação de remoção */}
+      <Dialog open={!!toDelete} onOpenChange={() => setToDelete(null)}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Remover cargo?</DialogTitle>
+          </DialogHeader>
+          <div className="mb-4">Tem certeza que deseja remover este cargo?</div>
+          <div className="flex gap-2">
+            <Button variant="destructive" size="sm" onClick={() => { mutationDelete.mutate(toDelete!); setToDelete(null); }}>Remover</Button>
+            <Button variant="outline" size="sm" onClick={() => setToDelete(null)}>Cancelar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function EditRoleModal({ role, permissions, onClose }: { role: any, permissions: any[], onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState(role?.name || "");
+  const [selectedPerms, setSelectedPerms] = useState<string[]>(role?.permissions || []);
+  const [error, setError] = useState("");
+  const mutation = useMutation({
+    mutationFn: async (data: { id: number, name: string, permissions: string[] }) => {
+      const res = await fetch(`/api/admin/access/roles/${data.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: data.name, permissions: data.permissions }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message || "Erro ao editar cargo");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries("roles");
+      onClose();
+    },
+    onError: (err: any) => setError(err.message || "Erro ao editar cargo"),
+  });
+
+  useEffect(() => {
+    setName(role?.name || "");
+    setSelectedPerms(role?.permissions || []);
+  }, [role]);
+
+  if (!role) return null;
+
+  return (
+    <Dialog open={!!role} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Editar Cargo</DialogTitle>
+        </DialogHeader>
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={e => {
+            e.preventDefault();
+            if (!name) {
+              setError("Informe o nome do cargo");
+              return;
+            }
+            mutation.mutate({ id: role.id, name, permissions: selectedPerms });
+          }}
+        >
+          <input
+            type="text"
+            className="border rounded px-2 py-1 w-48"
+            placeholder="Nome do cargo"
+            value={name}
+            onChange={e => setName(e.target.value)}
+          />
+          <div className="flex flex-wrap gap-2">
+            {permissions.map((perm: any) => (
+              <label key={perm.name} className="flex items-center gap-1 text-xs border rounded px-2 py-1 bg-white">
+                <input
+                  type="checkbox"
+                  checked={selectedPerms.includes(perm.name)}
+                  onChange={e => {
+                    if (e.target.checked) setSelectedPerms([...selectedPerms, perm.name]);
+                    else setSelectedPerms(selectedPerms.filter(p => p !== perm.name));
+                  }}
+                />
+                <span className="font-mono text-primary">{perm.name}</span>
+                <span className="text-muted-foreground">({perm.description})</span>
+              </label>
+            ))}
+          </div>
+          <div className="flex gap-2 items-center">
+            <Button type="submit" disabled={mutation.isPending} className="min-w-[120px]">{mutation.isPending ? "Salvando..." : "Salvar"}</Button>
+            {error && <span className="text-red-600 text-xs ml-2">{error}</span>}
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

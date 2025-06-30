@@ -8,8 +8,8 @@ export const userSchema = z.object({
   username: z.string(),
   password: z.string(),
   role: z.string().default("client"),
-  createdAt: z.date(),
-  updatedAt: z.date()
+  createdAt: z.union([z.string(), z.date()]),
+  updatedAt: z.union([z.string(), z.date()])
 });
 
 export const insertUserSchema = userSchema.omit({ 

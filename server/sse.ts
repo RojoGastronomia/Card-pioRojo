@@ -11,6 +11,7 @@ const dataChangeEmitter = new EventEmitter();
 export interface Client {
   id: string;
   response: Response;
+  dateFilter?: { start?: string; end?: string };
 }
 
 export class SSEManager {
@@ -33,21 +34,17 @@ export class SSEManager {
    */
   registerClient(req: Request, res: Response): void {
     const clientId = `client-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
-    
     logger.info({ clientId, totalClients: this.clients.size + 1 }, 'Novo cliente SSE registrado');
-
-    // Armazenar a referência do cliente
-    this.clients.set(clientId, { id: clientId, response: res });
-
+    // Salvar filtro de data do cliente
+    const { start, end } = req.query;
+    this.clients.set(clientId, { id: clientId, response: res, dateFilter: { start: start as string, end: end as string } });
     // Enviar evento inicial para confirmar conexão
     const connectionData = { 
       clientId, 
       timestamp: new Date().toISOString(),
       message: 'Conexão estabelecida com o servidor de eventos'
     };
-    
     this.sendEventToClient(clientId, 'connected', connectionData);
-
     // Remover cliente quando a conexão for fechada
     req.on('close', () => {
       logger.info({ clientId, remainingClients: this.clients.size - 1 }, 'Cliente SSE desconectado');
@@ -98,44 +95,46 @@ export class SSEManager {
     if (this.interval) {
       clearInterval(this.interval);
     }
-    
     this.interval = setInterval(async () => {
       try {
         if (this.clients.size === 0) return;
-        
         logger.info({ clientCount: this.clients.size }, 'Enviando atualizações periódicas');
-        const stats = await getBasicStats();
-        
-        this.broadcastUpdate('stats-update', {
-          ...stats,
-          generatedAt: new Date().toISOString()
-        });
+        // Para cada cliente, enviar dados filtrados
+        for (const [clientId, client] of this.clients.entries()) {
+          const { start, end } = client.dateFilter || {};
+          const stats = await getBasicStats(start, end);
+          this.sendEventToClient(clientId, 'stats-update', {
+            ...stats,
+            generatedAt: new Date().toISOString()
+          });
+        }
       } catch (error) {
         logger.error({ error }, 'Erro ao atualizar clientes SSE');
       }
     }, this.updateInterval);
-    
     logger.info({ intervalMs: this.updateInterval }, 'Intervalo de atualização SSE iniciado');
   }
 
   /**
    * Envia uma atualização para todos os clientes conectados
    */
-  public broadcastUpdate(event: string, data: any): void {
+  public async broadcastUpdate(event: string): Promise<void> {
     if (this.clients.size === 0) return;
-    
     logger.info({ clientCount: this.clients.size, event }, 'Enviando broadcast para todos os clientes');
-    
-    const message = `id: ${Date.now()}\nevent: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-    
-    this.clients.forEach((client, clientId) => {
+    for (const [clientId, client] of this.clients.entries()) {
       try {
+        const { start, end } = client.dateFilter || {};
+        const stats = await getBasicStats(start, end);
+        const message = `id: ${Date.now()}\nevent: ${event}\ndata: ${JSON.stringify({
+          ...stats,
+          generatedAt: new Date().toISOString()
+        })}\n\n`;
         client.response.write(message);
       } catch (error) {
         logger.error({ clientId, error }, 'Erro ao enviar mensagem de broadcast');
         this.clients.delete(clientId);
       }
-    });
+    }
   }
 
   /**
@@ -144,14 +143,8 @@ export class SSEManager {
   public async triggerUpdate(): Promise<void> {
     try {
       if (this.clients.size === 0) return;
-      
       logger.info('Atualizando dados do dashboard em tempo real');
-      const stats = await getBasicStats();
-      
-      this.broadcastUpdate('stats-update', {
-        ...stats,
-        generatedAt: new Date().toISOString()
-      });
+      await this.broadcastUpdate('stats-update');
     } catch (error) {
       logger.error({ error }, 'Erro ao atualizar dados do dashboard');
     }
@@ -191,21 +184,43 @@ export function dashboardUpdatesHandler(req: Request, res: Response): void {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive'
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': req.headers.origin || '*',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Expires'
   });
   
   sseManager.registerClient(req, res);
-  
-  // Enviar dados iniciais imediatamente
-  sseManager.sendInitialData(res);
+  // Enviar dados iniciais imediatamente, respeitando o filtro de data
+  const { start, end } = req.query;
+  import('./basic-stats').then(({ getBasicStats }) => {
+    getBasicStats(start as string, end as string).then(stats => {
+      const message = `id: ${Date.now()}\nevent: stats-update\ndata: ${JSON.stringify({
+        ...stats,
+        generatedAt: new Date().toISOString()
+      })}\n\n`;
+      res.write(message);
+    });
+  });
 }
 
 /**
  * Registra a rota SSE no aplicativo Express
  */
 export function registerSSERoute(app: Express): void {
-  app.get('/api/dashboard-updates', dashboardUpdatesHandler);
-  logger.info('Rota SSE para dashboard registrada');
+  // Rota OPTIONS para preflight requests
+  app.options('/api/stats-stream', (req: Request, res: Response) => {
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Expires');
+    res.status(200).end();
+  });
+
+  // Rota principal do SSE
+  app.get('/api/stats-stream', dashboardUpdatesHandler);
+  logger.info('Rota SSE para dashboard registrada em /api/stats-stream');
 }
 
 /**
@@ -220,11 +235,7 @@ export function notifyDataChange(): void {
  */
 export async function broadcastStats(): Promise<void> {
   try {
-    const stats = await getBasicStats();
-    sseManager.broadcastUpdate('stats-update', {
-      ...stats,
-      generatedAt: new Date().toISOString()
-    });
+    await sseManager.broadcastUpdate('stats-update');
   } catch (error) {
     logger.error({ error }, 'Erro ao fazer broadcast das estatísticas');
   }

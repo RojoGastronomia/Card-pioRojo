@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .header {
+      text-align: center;
+      padding: 20px 0;
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .content {
+      background-color: #ffffff;
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid #e9ecef;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 12px;
+      color: #6c757d;
+    }
+    .button {
+      display: inline-block;
+      padding: 10px 20px;
+      background-color: #007bff;
+      color: #ffffff;
+      text-decoration: none;
+      border-radius: 5px;
+      margin-top: 20px;
+    }
+    .details {
+      margin: 20px 0;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Pedido Recebido!</h1>
+  </div>
+
+  <div class="content">
+    <p>Olá {{userName}},</p>
+    
+    <p>Recebemos seu pedido com sucesso! Nossa equipe comercial entrará em contato em breve para finalizar os detalhes.</p>
+
+    <div class="details">
+      <h3>Detalhes do Pedido #{{orderId}}</h3>
+      <p><strong>Evento:</strong> {{eventName}}</p>
+      <p><strong>Data:</strong> {{eventDate}}</p>
+      <p><strong>Horário:</strong> {{eventTime}}</p>
+      <p><strong>Local:</strong> {{location}}</p>
+      <p><strong>Valor Total:</strong> R$ {{totalAmount}}</p>
+    </div>
+
+    <p>Você pode acompanhar o status do seu pedido a qualquer momento através da sua conta.</p>
+
+    <p>Em caso de dúvidas, entre em contato conosco pelo email suporte@rojogastronomia.com ou pelo telefone (11) 1234-5678.</p>
+
+    <p>Atenciosamente,<br>Equipe SiteCard</p>
+  </div>
+
+  <div class="footer">
+    <p>Este é um email automático, por favor não responda.</p>
+    <p>© 2024 SiteCard. Todos os direitos reservados.</p>
+  </div>
+</body>
+</html> 

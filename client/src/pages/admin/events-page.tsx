@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Event, insertEventSchema } from "@shared/schema";
@@ -51,22 +51,26 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import AdminNavbar from "@/components/admin/admin-navbar";
-
-// Form schema
-const eventFormSchema = z.object({
-  title: z.string().min(2, { message: "Title must be at least 2 characters" }),
-  description: z.string().min(10, { message: "Description must be at least 10 characters" }),
-  imageUrl: z.string().url({ message: "Please enter a valid URL" }),
-  location: z.string().optional(),
-  eventType: z.string(),
-  menuOptions: z.coerce.number().int().min(1),
-  status: z.string(),
-});
-
-type EventFormValues = z.infer<typeof eventFormSchema>;
+import { useLanguage } from "@/context/language-context";
 
 export default function AdminEventsPage() {
   const { toast } = useToast();
+  const { t } = useLanguage();
+  // Form schema agora dentro do componente
+  const eventFormSchema = z.object({
+    title: z.string().min(2, { message: t('validation', 'titleMinLength') }),
+    description: z.string().min(10, { message: t('validation', 'descriptionMinLength') }),
+    titleEn: z.string().min(2, { message: t('validation', 'titleEnMinLength') }),
+    descriptionEn: z.string().min(10, { message: t('validation', 'descriptionEnMinLength') }),
+    imageUrl: z.string().url({ message: t('validation', 'validUrl') }),
+    location: z.string().optional(),
+    eventType: z.string(),
+    menuOptions: z.coerce.number().int().min(1),
+    status: z.string(),
+  });
+
+  type EventFormValues = z.infer<typeof eventFormSchema>;
+
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -135,6 +139,7 @@ export default function AdminEventsPage() {
     },
     onSuccess: () => {
       setShowAddDialog(false);
+      form.reset();
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
       toast({
         title: "Event added",
@@ -158,6 +163,7 @@ export default function AdminEventsPage() {
     },
     onSuccess: () => {
       setShowAddDialog(false);
+      form.reset();
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
       toast({
         title: "Event updated",
@@ -200,6 +206,8 @@ export default function AdminEventsPage() {
     defaultValues: {
       title: "",
       description: "",
+      titleEn: "",
+      descriptionEn: "",
       imageUrl: "",
       location: "",
       eventType: "corporate",
@@ -216,6 +224,15 @@ export default function AdminEventsPage() {
     setShowAddDialog(false);
   };
 
+  // Reset form when dialog is closed
+  useEffect(() => {
+    if (!showAddDialog) {
+      form.reset();
+      setIsEditing(false);
+      setSelectedEvent(null);
+    }
+  }, [showAddDialog, form]);
+
   // Handle edit event button click
   const handleEditEvent = (event: Event) => {
     setSelectedEvent(event);
@@ -224,6 +241,8 @@ export default function AdminEventsPage() {
     form.reset({
       title: event.title,
       description: event.description,
+      titleEn: event.titleEn || "",
+      descriptionEn: event.descriptionEn || "",
       imageUrl: event.imageUrl,
       location: event.location || "",
       eventType: event.eventType,
@@ -590,7 +609,7 @@ export default function AdminEventsPage() {
       <Dialog open={showAddDialog} onOpenChange={handleCloseDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{isEditing ? "Editar Evento" : "Criar Novo Evento"}</DialogTitle>
+            <DialogTitle>{isEditing ? t('events', 'editEvent') : t('events', 'createEvent')}</DialogTitle>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -600,7 +619,7 @@ export default function AdminEventsPage() {
                   name="title"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Nome do Evento</FormLabel>
+                      <FormLabel>{t('events', 'eventNamePortuguese')}</FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
@@ -610,73 +629,10 @@ export default function AdminEventsPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="eventType"
+                  name="titleEn"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Tipo de Evento</FormLabel>
-                      <Select 
-                        onValueChange={field.onChange} 
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione um tipo" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="corporate">Corporativo</SelectItem>
-                          <SelectItem value="wedding">Casamento</SelectItem>
-                          <SelectItem value="birthday">Aniversário</SelectItem>
-                          <SelectItem value="coffee">Coffee Break</SelectItem>
-                          <SelectItem value="lunch">Almoço</SelectItem>
-                          <SelectItem value="brunch">Brunch</SelectItem>
-                          <SelectItem value="festival">Festival</SelectItem>
-                          <SelectItem value="cocktail">Coquetel</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Descrição</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        {...field} 
-                        rows={4}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Local</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="imageUrl"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>URL da Imagem</FormLabel>
+                      <FormLabel>{t('events', 'eventNameEnglish')}</FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
@@ -685,19 +641,18 @@ export default function AdminEventsPage() {
                   )}
                 />
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
-                  name="menuOptions"
+                  name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Opções de Menu</FormLabel>
+                      <FormLabel>{t('events', 'descriptionPortuguese')}</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
-                          min={1} 
-                          {...field} 
+                        <Textarea
+                          {...field}
+                          rows={4}
                         />
                       </FormControl>
                       <FormMessage />
@@ -706,22 +661,109 @@ export default function AdminEventsPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="status"
+                  name="descriptionEn"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select 
-                        onValueChange={field.onChange} 
-                        defaultValue={field.value}
-                      >
+                      <FormLabel>{t('events', 'descriptionEnglish')}</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          {...field}
+                          rows={4}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="imageUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('events', 'imageUrl')}</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="location"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('events', 'location')}</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="eventType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('events', 'eventType')}</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecione um status" />
+                            <SelectValue placeholder={t('events', 'selectEventType')} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="available">Disponível</SelectItem>
-                          <SelectItem value="unavailable">Indisponível</SelectItem>
+                          <SelectItem value="corporate">{t('events', 'eventTypeCorporate')}</SelectItem>
+                          <SelectItem value="wedding">{t('events', 'eventTypeWedding')}</SelectItem>
+                          <SelectItem value="birthday">{t('events', 'eventTypeBirthday')}</SelectItem>
+                          <SelectItem value="coffee">{t('events', 'eventTypeCoffee')}</SelectItem>
+                          <SelectItem value="lunch">{t('events', 'eventTypeLunch')}</SelectItem>
+                          <SelectItem value="brunch">{t('events', 'eventTypeBrunch')}</SelectItem>
+                          <SelectItem value="festival">{t('events', 'eventTypeFestival')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="menuOptions"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('events', 'menuOptions')}</FormLabel>
+                      <FormControl>
+                        <Input type="number" min="1" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('events', 'statusLabel')}</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={t('events', 'selectStatus')} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="active">{t('events', 'statusActive')}</SelectItem>
+                          <SelectItem value="inactive">{t('events', 'statusInactive')}</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -729,16 +771,13 @@ export default function AdminEventsPage() {
                   )}
                 />
               </div>
-              
+
               <DialogFooter>
                 <DialogClose asChild>
-                  <Button variant="outline" type="button">Cancelar</Button>
+                  <Button type="button" variant="outline">Cancelar</Button>
                 </DialogClose>
-                <Button 
-                  type="submit"
-                  disabled={addEventMutation.isPending || updateEventMutation.isPending}
-                >
-                  {isEditing ? "Atualizar" : "Criar"} Evento
+                <Button type="submit" className="w-full">
+                  {isEditing ? t('events', 'updateEvent') : t('events', 'createEvent')}
                 </Button>
               </DialogFooter>
             </form>

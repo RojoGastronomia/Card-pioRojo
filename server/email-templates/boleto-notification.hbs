@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boleto Disponível</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background-color: #ffffff;
+            padding: 30px;
+            border: 1px solid #e9ecef;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            border-radius: 0 0 8px 8px;
+            font-size: 14px;
+            color: #6c757d;
+        }
+        .boleto-info {
+            background-color: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .boleto-button {
+            display: inline-block;
+            background-color: #2196f3;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        .boleto-button:hover {
+            background-color: #1976d2;
+        }
+        .order-details {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .order-details h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .order-details p {
+            margin: 8px 0;
+        }
+        .system-access {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .system-access h3 {
+            color: #155724;
+            margin-top: 0;
+        }
+        .system-button {
+            display: inline-block;
+            background-color: #28a745;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        .system-button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Boleto Disponível</h1>
+        <p>Olá {{userName}}, seu boleto está pronto!</p>
+    </div>
+
+    <div class="content">
+        <p>O boleto para o seu pedido foi gerado e está disponível para pagamento.</p>
+
+        <div class="boleto-info">
+            <h3>📄 Boleto Bancário</h3>
+            <p>O boleto está anexado a este email e também pode ser acessado através do link abaixo:</p>
+            <a href="{{boletoUrl}}" class="boleto-button" target="_blank">
+                📥 Baixar Boleto
+            </a>
+            <p><strong>Vencimento:</strong> 3 dias úteis após a geração</p>
+        </div>
+
+        <div class="system-access">
+            <h3>💻 Acesso pelo Sistema</h3>
+            <p>Você também pode acessar e baixar o boleto diretamente pelo nosso sistema:</p>
+            <a href="{{systemUrl}}" class="system-button" target="_blank">
+                🔗 Acessar Meus Pedidos
+            </a>
+            <p><small>Faça login na sua conta e vá em "Meus Pedidos" → "Detalhes" → "Baixar Boleto"</small></p>
+        </div>
+
+        <div class="order-details">
+            <h3>📋 Detalhes do Pedido</h3>
+            <p><strong>Número do Pedido:</strong> #{{orderId}}</p>
+            <p><strong>Evento:</strong> {{eventName}}</p>
+            <p><strong>Data do Evento:</strong> {{eventDate}}</p>
+            <p><strong>Valor Total:</strong> R$ {{totalAmount}}</p>
+        </div>
+
+        <p><strong>Instruções importantes:</strong></p>
+        <ul>
+            <li>O boleto vence em 3 dias úteis</li>
+            <li>Após o pagamento, pode levar até 3 dias úteis para a confirmação bancária</li>
+            <li>Guarde o comprovante de pagamento</li>
+            <li>Você pode acompanhar o status do pagamento em "Meus Pedidos"</li>
+            <li>Em caso de dúvidas, entre em contato conosco</li>
+        </ul>
+
+        <p>Obrigado por escolher nossos serviços!</p>
+    </div>
+
+    <div class="footer">
+        <p>Este é um email automático, não responda a esta mensagem.</p>
+        <p>Em caso de dúvidas, entre em contato conosco pelo email suporte@rojogastronomia.com</p>
+        <p>© 2024 Rojo Gastronomia. Todos os direitos reservados.</p>
+    </div>
+</body>
+</html> 

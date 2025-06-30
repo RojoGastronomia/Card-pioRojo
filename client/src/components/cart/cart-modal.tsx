@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/utils";
 import CartItem from "./cart-item";
-import { CartItem as CartItemType } from "@shared/schema";
+import { CartItem as CartItemType, Order } from "@shared/schema";
 import { 
   Dialog, 
   DialogContent, 
@@ -18,6 +18,8 @@ import { Button } from "@/components/ui/button";
 import { ShoppingCart, Package2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { PaymentConfirmationModal } from "@/components/orders/payment-confirmation-modal";
+import { useLanguage } from "@/context/language-context";
+import { OrderReviewModal } from "../orders/order-review-modal";
 
 interface CartItem extends CartItemType {
   menuItems?: {
@@ -35,6 +37,10 @@ export default function CartModal() {
   const [processing, setProcessing] = useState(false);
   const [showPaymentPrompt, setShowPaymentPrompt] = useState(false);
   const [createdOrderIds, setCreatedOrderIds] = useState<number[]>([]);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
+  const [showOrderSuccessModal, setShowOrderSuccessModal] = useState(false);
+  const { t } = useLanguage();
 
   const subtotal = calculateSubtotal();
   const serviceCharge = subtotal * 0.1; // 10% service fee
@@ -185,12 +191,9 @@ export default function CartModal() {
       console.log("🎉 Todos os pedidos foram criados com sucesso");
       setProcessing(false);
       clearCart();
-      
-      // Armazenar os IDs dos pedidos criados
+      closeCart();
       setCreatedOrderIds(orderIds);
-      
-      // Mostrar o modal de opção de pagamento
-      setShowPaymentPrompt(true);
+      setShowOrderSuccessModal(true);
       
     } catch (error) {
       console.error("❌ Erro durante checkout:", error);
@@ -229,6 +232,12 @@ export default function CartModal() {
     toast.success("Pedido registrado! Lembre-se de que ele será confirmado apenas após o pagamento.");
   };
 
+  const handleReviewSuccess = () => {
+    clearCart();
+    closeCart();
+    navigate("/orders");
+  };
+
   return (
     <>
     <Dialog open={cartOpen} onOpenChange={closeCart}>
@@ -236,7 +245,7 @@ export default function CartModal() {
         <DialogHeader className="flex justify-between items-center flex-row">
           <DialogTitle className="flex items-center">
             <ShoppingCart className="mr-2" size={18} />
-            Seu Carrinho
+            {t('cart', 'title')}
           </DialogTitle>
         </DialogHeader>
         
@@ -244,11 +253,11 @@ export default function CartModal() {
           {cartItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8">
               <Package2 className="h-16 w-16 text-gray-300 mb-4" />
-              <h3 className="text-xl font-medium text-gray-700 mb-2">Seu carrinho está vazio</h3>
+              <h3 className="text-xl font-medium text-gray-700 mb-2">{t('cart', 'empty')}</h3>
               <p className="text-gray-500 text-center mb-6">
-                Adicione eventos ao seu carrinho para continuar.
+                {t('cart', 'emptyDescription')}
               </p>
-              <Button onClick={closeCart}>Continuar Comprando</Button>
+              <Button onClick={closeCart}>{t('cart', 'continueShopping')}</Button>
             </div>
           ) : (
             <>
@@ -264,19 +273,19 @@ export default function CartModal() {
               <div className="w-full space-y-4">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Subtotal:</span>
+                    <span className="text-gray-600">{t('cart', 'subtotal')}</span>
               <span className="font-medium">{formatCurrency(subtotal)}</span>
             </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Taxa de serviço (10%):</span>
+                    <span className="text-gray-600">{t('cart', 'serviceFee')}</span>
               <span className="font-medium">{formatCurrency(serviceCharge)}</span>
             </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Adicional de garçons:</span>
+                    <span className="text-gray-600">{t('cart', 'waiterFee')}</span>
                     <span className="font-medium">{formatCurrency(waiterFeeTotal)}</span>
                   </div>
                   <div className="flex justify-between text-base font-semibold">
-                    <span>Total:</span>
+                    <span>{t('cart', 'total')}</span>
               <span className="text-primary">{formatCurrency(total)}</span>
             </div>
                 </div>
@@ -286,7 +295,7 @@ export default function CartModal() {
                 className="flex-1"
                 onClick={closeCart}
               >
-                Continuar Comprando
+                {t('cart', 'continueShopping')}
               </Button>
               <Button 
                 className="flex-1"
@@ -296,10 +305,10 @@ export default function CartModal() {
                     {processing ? (
                       <div className="flex items-center">
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                        Processando...
+                        {t('cart', 'processing')}
                       </div>
                     ) : (
-                      "Finalizar Pedido"
+                      t('cart', 'checkout')
                     )}
               </Button>
             </div>
@@ -310,12 +319,45 @@ export default function CartModal() {
     </Dialog>
       
       {/* Modal de confirmação de pagamento */}
+      {/*
       <PaymentConfirmationModal
         open={showPaymentPrompt}
         onOpenChange={setShowPaymentPrompt}
         onPayNow={handlePayNow}
         onPayLater={handlePayLater}
       />
+      */}
+
+      {/* Modal de Revisão do Pedido */}
+      <OrderReviewModal
+        order={createdOrder}
+        open={showReviewModal}
+        onOpenChange={setShowReviewModal}
+        onSuccess={handleReviewSuccess}
+      />
+
+      {/* Modal de sucesso do novo fluxo */}
+      <Dialog open={showOrderSuccessModal} onOpenChange={setShowOrderSuccessModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Pedido realizado com sucesso!</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p>
+              Seu pedido foi registrado! Você receberá um email com o boleto em breve.<br/>
+              Você também poderá baixar o boleto em <b>Meus Pedidos</b> assim que ele estiver disponível.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => {
+              setShowOrderSuccessModal(false);
+              navigate('/orders?newOrder=true');
+            }}>
+              Ir para Meus Pedidos
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

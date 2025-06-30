@@ -1,0 +1,8 @@
+{
+  "out": "./drizzle",
+  "schema": "../shared/schema.ts",
+  "dialect": "postgresql",
+  "dbCredentials": {
+    "url": "postgresql://postgres:03032012FeKa%3C3@db.kaozvieefihavxsowfak.supabase.co:5432/postgres"
+  }
+} 

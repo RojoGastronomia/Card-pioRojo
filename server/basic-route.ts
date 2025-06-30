@@ -9,9 +9,20 @@ export function registerBasicStatsRoute(app: Express) {
   app.get("/api/basic-stats", async (req: Request, res: Response) => {
     // Registrar hora exata da requisição
     const requestTime = new Date();
+    console.log(`[API] ===== INÍCIO DA REQUISIÇÃO /api/basic-stats =====`);
     console.log(`[API] GET /api/basic-stats - Request received at ${requestTime.toISOString()}`);
     console.log(`[API] Query params:`, req.query);
     console.log(`[API] Query timestamp: ${req.query.ts || 'none'}`);
+    console.log(`[API] URL completa: ${req.url}`);
+    console.log(`[API] Headers:`, req.headers);
+    
+    // Log detalhado dos parâmetros de filtro
+    const { start, end } = req.query;
+    console.log(`[API] Parâmetros de filtro extraídos:`);
+    console.log(`[API] - start: "${start}" (tipo: ${typeof start})`);
+    console.log(`[API] - end: "${end}" (tipo: ${typeof end})`);
+    console.log(`[API] - start existe: ${!!start}`);
+    console.log(`[API] - end existe: ${!!end}`);
     
     try {
       // Configurar headers para prevenir cache em todos os níveis
@@ -24,10 +35,13 @@ export function registerBasicStatsRoute(app: Express) {
       // Gerar ID único para esta resposta
       const responseId = Math.random().toString(36).substring(2, 15);
       
+      // Pegar os parâmetros de data do filtro
+      console.log(`[API] Chamando getBasicStats com parâmetros: start="${start}", end="${end}"`);
+      const stats = await getBasicStats(start as string, end as string);
+      
       // Obter estatísticas com tempo de execução
       console.log(`[API] Iniciando busca de estatísticas - ID: ${responseId}`);
       const startTime = Date.now();
-      const stats = await getBasicStats();
       const endTime = Date.now();
       const executionTime = endTime - startTime;
       

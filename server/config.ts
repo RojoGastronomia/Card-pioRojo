@@ -29,6 +29,7 @@ export const UPLOAD_LIMITS = {
 
 // Role hierarchy
 export const ROLES = {
+  MASTER: 'master',
   ADMIN: 'Administrador',
   MANAGER: 'Gerente',
   LEADER: 'Lider',

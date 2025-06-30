@@ -1,27 +1,16 @@
-import { defineConfig } from "drizzle-kit";
-import fs from 'fs';
+import type { Config } from 'drizzle-kit';
+import * as dotenv from 'dotenv';
+dotenv.config();
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL, ensure the database is provisioned");
-}
-
-const migrationsDir = './migrations/meta';
-
-if (!fs.existsSync(migrationsDir)) {
-  fs.mkdirSync(migrationsDir, { recursive: true });
-}
-
-const journalFile = './migrations/meta/_journal.json';
-
-if (!fs.existsSync(journalFile)) {
-  fs.writeFileSync(journalFile, '{}');
-}
-
-export default defineConfig({
-  out: "./migrations",
-  schema: "./shared/schema.ts",
-  dialect: "postgresql",
+export default {
+  schema: './shared/schema.ts',
+  out: './drizzle',
+  dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL,
+    host: process.env.DB_HOST || 'localhost',
+    port: Number(process.env.DB_PORT) || 5432,
+    user: process.env.DB_USER || 'postgres',
+    password: process.env.DB_PASSWORD || 'postgres',
+    database: process.env.DB_NAME || 'sitecard',
   },
-});
+} satisfies Config;

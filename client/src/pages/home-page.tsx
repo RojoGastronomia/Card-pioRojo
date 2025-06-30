@@ -8,18 +8,30 @@ import { useLocation } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { getQueryFn } from "@/lib/queryClient";
+import { useLanguage } from "@/context/language-context";
 
 export default function HomePage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const { t, language } = useLanguage();
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
-  const { data: events, isLoading } = useQuery<Event[]>({
-    queryKey: ["/api/events"],
-    queryFn: getQueryFn({ on401: "throw" }),
-    gcTime: 0,
-    staleTime: 0,
-    retry: 1,
+  const { data: events, isLoading, error } = useQuery({
+    queryKey: ["/api/events/popular", language],
+    queryFn: async () => {
+      try {
+        const response = await fetch(`/api/events/popular?lang=${language}`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch events: ${response.statusText}`);
+        }
+        const data = await response.json();
+        console.log('Events data:', data); // Debug log
+        return data;
+      } catch (error) {
+        console.error('Error fetching events:', error);
+        throw error;
+      }
+    },
   });
   
   const handleEventClick = (event: Event) => {
@@ -37,9 +49,9 @@ export default function HomePage() {
   return (
     <main className="container mx-auto px-4 py-8">        
       <div className="mb-12">
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">Eventos Gastronômicos</h1>
+        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">{t('events', 'title')}</h1>
         <p className="text-lg text-gray-600">
-          Explore nossos serviços de catering para todos os tipos de eventos
+          {t('events', 'subtitle')}
         </p>
       </div>
 
@@ -47,26 +59,25 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-gradient-to-r from-primary/90 to-primary/70 z-10"></div>
         <img
           src="https://public.readdy.ai/ai/img_res/b8905632f9218145207ecce49d4cdfb3.jpg"
-          alt="Eventos Gastronômicos"
+          alt={t('events', 'title')}
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 flex flex-col justify-center items-start p-8 md:p-16 z-20">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Gastronomia de alta qualidade para seu evento
+            {t('events', 'bannerTitle')}
           </h2>
           <p className="text-white text-lg mb-6 max-w-xl">
-            Oferecemos serviços completos de catering para todos os tipos de eventos, 
-            desde casamentos a eventos corporativos.
+            {t('events', 'bannerSubtitle')}
           </p>
           <button 
             onClick={() => navigate("/events")}
             className="bg-white text-primary px-6 py-3 rounded-button font-medium hover:bg-white/90 transition-colors">
-            Ver Eventos Disponíveis
+            {t('events', 'viewAvailableEvents')}
           </button>
         </div>
       </div>
 
-      <h2 className="text-2xl font-bold text-gray-800 mb-8">Eventos Disponíveis</h2>
+      <h2 className="text-2xl font-bold text-gray-800 mb-8">{t('events', 'availableEvents')}</h2>
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -84,16 +95,32 @@ export default function HomePage() {
             </div>
           ))}
         </div>
+      ) : error ? (
+        <div className="text-center py-8">
+          <p className="text-red-500 mb-4">Erro ao carregar eventos. Por favor, tente novamente.</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="bg-primary text-white px-4 py-2 rounded-button hover:bg-primary/90 transition-colors"
+          >
+            Recarregar Página
+          </button>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {events && events.map((event: Event) => (
-            <EventCard 
-              key={event.id} 
-              event={event} 
-              onClick={() => handleEventClick(event)}
-              onMenuOptionsClick={handleMenuOptionsClick}
-            />
-          ))}
+          {events && events.length > 0 ? (
+            events.map((event: Event) => (
+              <EventCard 
+                key={event.id} 
+                event={event} 
+                onClick={() => handleEventClick(event)}
+                onMenuOptionsClick={handleMenuOptionsClick}
+              />
+            ))
+          ) : (
+            <div className="col-span-3 text-center py-8">
+              <p className="text-gray-500">{t('home', 'noEventsAvailable')}</p>
+            </div>
+          )}
         </div>
       )}
 

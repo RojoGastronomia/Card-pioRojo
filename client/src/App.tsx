@@ -4,6 +4,7 @@ import { queryClient } from "./lib/queryClient";
 import { Toaster } from "sonner";
 import { AuthProvider, useAuth } from "./hooks/use-auth";
 import { CartProvider } from "./context/cart-context";
+import { LanguageProvider, useLanguage } from "./context/language-context";
 import { ProtectedRoute } from "./lib/protected-route";
 import { MainLayout } from "./components/layout/main-layout";
 import NotFound from "./pages/not-found";
@@ -21,6 +22,7 @@ import MasterPage from "./pages/admin/master-page";
 import MenusCrudPage from "./pages/admin/menus-crud-page";
 import DishesPage from "./pages/admin/dishes-page";
 import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
 
 interface RolePermissions {
   [key: string]: string[];
@@ -28,11 +30,13 @@ interface RolePermissions {
 
 // Componente simples de loading
 function Loading() {
+  const { t } = useLanguage();
+  
   return (
     <div className="flex items-center justify-center min-h-[50vh]">
       <div className="flex flex-col items-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-gray-600 font-medium">Carregando...</p>
+        <p className="mt-4 text-gray-600 font-medium">{t('common', 'loading')}</p>
       </div>
     </div>
   );
@@ -72,17 +76,19 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <CartProvider>
-          <AppRouter />
-          <Toaster />
-        </CartProvider>
+        <LanguageProvider>
+          <CartProvider>
+            <AppRouter />
+            <Toaster />
+          </CartProvider>
+        </LanguageProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
 }
 
 function AppRouter() {
-  const { role: userRole, isAuthenticated, isLoading } = useAuth();
+  const { role: userRole, isAuthenticated, isLoading, error } = useAuth();
   const [, navigate] = useLocation();
   // Garantir páginas padrão para usuários sem papel definido
   const defaultPages = ['Inicio', 'Eventos', 'Meus pedidos'];
@@ -91,6 +97,24 @@ function AppRouter() {
   // Log para depuração
   console.log('Current user role:', userRole);
   console.log('Available pages:', userPages);
+  console.log('Auth state:', { isAuthenticated, isLoading, error });
+
+  // Fechar todos os modais/dialogs ao trocar de rota
+  useEffect(() => {
+    window.dispatchEvent(new Event('closeAllModals'));
+  }, [window.location.pathname]);
+
+  // Se estiver carregando, mostrar loading
+  if (isLoading) {
+    return <Loading />;
+  }
+
+  // Se houver erro de autenticação, redirecionar para login
+  if (error) {
+    console.error('Auth error:', error);
+    navigate('/auth');
+    return null;
+  }
 
   return (
     <MainLayout>
@@ -104,11 +128,6 @@ function AppRouter() {
         <Route 
           path="/orders" 
           component={() => {
-            // Se estiver carregando, mostrar loading
-            if (isLoading) {
-              return <Loading />;
-            }
-            
             // Se não estiver autenticado, redirecionar para login
             if (!isAuthenticated) {
               const currentPath = window.location.pathname;

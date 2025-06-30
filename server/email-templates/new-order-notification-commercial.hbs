@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Novo Pedido - Gerar Boleto</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #dc3545;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+            color: white;
+        }
+        .content {
+            background-color: #ffffff;
+            padding: 30px;
+            border: 1px solid #e9ecef;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            border-radius: 0 0 8px 8px;
+            font-size: 14px;
+            color: #6c757d;
+        }
+        .order-details {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .order-details h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .order-details p {
+            margin: 8px 0;
+        }
+        .customer-info {
+            background-color: #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .action-required {
+            background-color: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .action-required h3 {
+            color: #856404;
+            margin-top: 0;
+        }
+        .admin-link {
+            display: inline-block;
+            background-color: #dc3545;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        .admin-link:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🆕 Novo Pedido Recebido</h1>
+        <p>Um novo pedido foi recebido e precisa de boleto gerado</p>
+    </div>
+
+    <div class="content">
+        <div class="action-required">
+            <h3>⚠️ Ação Necessária</h3>
+            <p><strong>Este pedido precisa que você gere e anexe um boleto bancário no sistema.</strong></p>
+            <p>Após gerar o boleto, anexe-o no painel administrativo para que o cliente receba automaticamente.</p>
+        </div>
+
+        <div class="order-details">
+            <h3>📋 Detalhes do Pedido #{{orderId}}</h3>
+            <p><strong>Evento:</strong> {{eventName}}</p>
+            <p><strong>Data do Evento:</strong> {{eventDate}}</p>
+            <p><strong>Horário:</strong> {{eventTime}}</p>
+            <p><strong>Local:</strong> {{location}}</p>
+            <p><strong>Número de Convidados:</strong> {{guestCount}}</p>
+            <p><strong>Menu Selecionado:</strong> {{menuSelection}}</p>
+            <p><strong>Valor Total:</strong> R$ {{totalAmount}}</p>
+            <p><strong>Taxa de Garçom:</strong> R$ {{waiterFee}}</p>
+            <p><strong>Data do Pedido:</strong> {{orderDate}}</p>
+        </div>
+
+        <div class="customer-info">
+            <h3>👤 Dados do Cliente</h3>
+            <p><strong>Nome:</strong> {{customerName}}</p>
+            <p><strong>Email:</strong> {{customerEmail}}</p>
+            <p><strong>Telefone:</strong> {{customerPhone}}</p>
+        </div>
+
+        <div class="action-required">
+            <h3>📄 Próximos Passos</h3>
+            <ol>
+                <li>Gere o boleto bancário para o valor de <strong>R$ {{totalAmount}}</strong></li>
+                <li>Acesse o painel administrativo do sistema</li>
+                <li>Localize o pedido #{{orderId}}</li>
+                <li>Anexe o boleto gerado</li>
+                <li>O sistema enviará automaticamente o boleto para o cliente</li>
+            </ol>
+            
+            <a href="{{adminPanelUrl}}" class="admin-link" target="_blank">
+                🔗 Acessar Painel Administrativo
+            </a>
+        </div>
+
+        <p><strong>Importante:</strong> O cliente está aguardando o boleto para realizar o pagamento. Após anexar o boleto no sistema, o cliente receberá automaticamente um email com o documento.</p>
+    </div>
+
+    <div class="footer">
+        <p>Este é um email automático do sistema SiteCard.</p>
+        <p>Em caso de dúvidas, entre em contato com o suporte técnico.</p>
+        <p>© 2024 Rojo Gastronomia. Todos os direitos reservados.</p>
+    </div>
+</body>
+</html> 
