@@ -1,0 +1,41 @@
+# Backend files
+server/
+api/
+migrations/
+drizzle/
+prisma/
+scripts/
+backups/
+uploads/
+*.sql
+*.db
+
+# Development files
+.env
+.env.local
+.env.development
+.env.test
+*.log
+node_modules/
+venv/
+temp/
+.qodo/
+.config/
+
+# Documentation
+*.md
+*.pdf
+*.xlsx
+*.csv
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db 
