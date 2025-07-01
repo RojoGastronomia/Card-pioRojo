@@ -16,7 +16,6 @@ uploads/
 .env.development
 .env.test
 *.log
-node_modules/
 venv/
 temp/
 .qodo/
