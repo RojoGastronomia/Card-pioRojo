@@ -10,10 +10,13 @@ import path from 'path';
 
 const app = express();
 
+console.log("CORS_ORIGIN:", process.env.CORS_ORIGIN);
+
 // CORS must come first
 app.use(cors({
   origin: (origin, callback) => {
     const allowed = (process.env.CORS_ORIGIN || '').split(',');
+    console.log("CORS check:", { origin, allowed });
     if (!origin || allowed.includes(origin)) {
       callback(null, true);
     } else {
