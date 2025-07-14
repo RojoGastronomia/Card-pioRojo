@@ -413,20 +413,20 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
                   <label className="block text-sm font-medium mb-1 text-card-foreground">Local do Evento <span className="text-red-500">*</span></label>
                 <select
   className={`w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-primary bg-card text-card-foreground ${locationTouched && !selectedLocation ? 'border-red-500 ring-2 ring-red-400' : 'border-border'}`}
-  value={selectedLocation}
-  onChange={e => setSelectedLocation(e.target.value)}
+                  value={selectedLocation}
+                  onChange={e => setSelectedLocation(e.target.value)}
   onBlur={() => setLocationTouched(true)}
-  required
->
+                  required
+                >
   <option value="">Selecione o local...</option>
-  {locationOptions.map(group => (
-    <optgroup key={group.label} label={group.label}>
-      {group.options.map(option => (
+                  {locationOptions.map(group => (
+                    <optgroup key={group.label} label={group.label}>
+                      {group.options.map(option => (
         <option key={option} value={option}>{option}</option>
-      ))}
-    </optgroup>
-  ))}
-</select>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
                   {locationTouched && !selectedLocation && (
                     <p className="text-red-500 text-xs mt-1">O local do evento é obrigatório.</p>
                   )}
