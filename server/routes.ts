@@ -1,7 +1,7 @@
 import express, { Express, Request, Response, NextFunction } from "express";
 import { Server } from "http";
-import { storage } from "./storage-mongo";
-import { setupAuth, authenticateJWT, AuthenticatedRequest as AuthReq } from "./auth";
+import { storage } from "./storage-mongo.js";
+import { setupAuth, authenticateJWT, AuthenticatedRequest as AuthReq } from "./auth.js";
 import { z } from "zod";
 import { 
   insertEventSchema, 
@@ -18,13 +18,13 @@ import fsSync from 'fs';
 import path from 'path';
 import { format } from 'date-fns';
 import { spawn } from 'child_process';
-import logger from './logger';
-import { getBasicStats } from "./basic-stats";
-import { cache } from './cache';
-import { validateInput, requireRole } from './middleware';
-import { ROLES } from './config';
+import logger from './logger.js';
+import { getBasicStats } from "./basic-stats.js";
+import { cache } from './cache.js';
+import { validateInput, requireRole } from './middleware.js';
+import { ROLES } from './config.js';
 import { fileURLToPath } from 'url';
-import { sendEmail } from './email';
+import { sendEmail } from './email.js';
 import bcrypt from 'bcryptjs';
 import { 
   type Event, type InsertEvent,
