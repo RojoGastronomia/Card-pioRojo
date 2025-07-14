@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { API_URL } from '../config';
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -76,7 +77,7 @@ export async function apiRequest(
       requestBody = JSON.stringify(body);
     }
 
-    const response = await fetch(fullUrl, {
+    const response = await fetch(`${API_URL}${fullUrl}`, {
       method,
       headers,
       body: requestBody,
@@ -149,7 +150,7 @@ export const getQueryFn: <T>(options: {
     console.log(`[QueryFn] Buscando dados de: ${fullUrl}`);
     
     try {
-      const res = await fetch(fullUrl, {
+      const res = await fetch(`${API_URL}${fullUrl}`, {
         credentials: "include",
       });
 

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, FileText, Download, CheckCircle, AlertCircle } from "lucide-react";
 import { type Order, type Event } from "@shared/schema";
 import { toast } from "sonner";
+import { API_URL } from '../../config';
 
 interface BoletoModalProps {
   order: Order | null;
@@ -42,7 +43,7 @@ export function BoletoModal({ order, event, open, onOpenChange, onConfirmPayment
     if (order.boletoUrl) {
       // O boletoUrl é apenas o nome do arquivo, não a URL completa
       // Vamos usar o endpoint de download que já está configurado
-      const downloadUrl = `http://localhost:5000/api/orders/${order.id}/boleto`;
+      const downloadUrl = `${API_URL}/api/orders/${order.id}/boleto`;
       console.log("URL de download construída:", downloadUrl);
       
       // Tentar fazer o download
@@ -143,7 +144,7 @@ export function BoletoModal({ order, event, open, onOpenChange, onConfirmPayment
                     console.log("=== DEBUG INFO ===");
                     console.log("Order ID:", order.id);
                     console.log("Boleto URL:", order.boletoUrl);
-                    console.log("Download URL:", `http://localhost:5000/api/orders/${order.id}/boleto`);
+                    console.log("Download URL:", `${API_URL}/api/orders/${order.id}/boleto`);
                     console.log("Current origin:", window.location.origin);
                     console.log("==================");
                     toast.info("Informações de debug no console");

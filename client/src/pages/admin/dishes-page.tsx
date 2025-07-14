@@ -45,6 +45,7 @@ import { formatCurrency } from "@/lib/utils";
 import React from "react";
 import { useRealtimeUpdates } from "@/hooks/use-realtime-updates";
 import { Textarea } from "@/components/ui/textarea";
+import { API_URL } from '../config';
 
 // Form schema
 const dishFormSchema = z.object({
@@ -118,7 +119,7 @@ export default function AdminDishesPage() {
   const { data: categories = [], isLoading: isLoadingCategories, refetch: refetchCategories } = useQuery({
     queryKey: ["/api/categories"],
     queryFn: async () => {
-      const response = await fetch("/api/categories");
+      const response = await fetch(`${API_URL}/api/categories`);
       if (!response.ok) {
         throw new Error("Erro ao carregar categorias");
       }
@@ -337,7 +338,7 @@ export default function AdminDishesPage() {
         // Fallback para o menuId direto apenas se a API não retornar resultados
         if (dish.menuId) {
           try {
-            const menuResponse = await apiRequest("GET", `/api/menus/${dish.menuId}`).then(res => res.json());
+            const menuResponse = await apiRequest("GET", `${API_URL}/api/menus/${dish.menuId}`).then(res => res.json());
             
             if (menuResponse) {
               setLinkedMenus([menuResponse]);
@@ -455,7 +456,7 @@ export default function AdminDishesPage() {
   const addCategoryMutation = useMutation({
     mutationFn: async (data: { name: string; nameEn?: string }) => {
       console.log("Enviando dados para adicionar categoria:", data);
-      const response = await fetch("/api/categories", {
+      const response = await fetch(`${API_URL}/api/categories`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -490,7 +491,7 @@ export default function AdminDishesPage() {
   const updateCategoryMutation = useMutation({
     mutationFn: async ({ id, categoryData }: { id: string; categoryData: CategoryFormValues }) => {
       console.log("[Mutation] Sending update category request:", { id, categoryData });
-      const res = await apiRequest("PUT", `/api/categories/${id}`, categoryData);
+      const res = await apiRequest("PUT", `${API_URL}/api/categories/${id}`, categoryData);
       return await res.json();
     },
     onSuccess: () => {
@@ -516,7 +517,7 @@ export default function AdminDishesPage() {
   // Delete category mutation
   const deleteCategoryMutation = useMutation({
     mutationFn: async (categoryId: string) => {
-      await apiRequest("DELETE", `/api/categories/${categoryId}`);
+      await apiRequest("DELETE", `${API_URL}/api/categories/${categoryId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });

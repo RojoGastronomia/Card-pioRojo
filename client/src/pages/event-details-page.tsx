@@ -27,6 +27,7 @@ import { formatCurrency } from "@/lib/utils";
 import { useCart } from "@/context/cart-context";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/context/language-context";
+import { API_URL } from '../config';
 
 // Função imperativa para criar o modal fora do React
 function showImperativeLoginModal(onLogin: () => void) {
@@ -199,7 +200,7 @@ export default function EventDetailsPage() {
     enabled: !!eventId,
     retry: false,
     queryFn: async () => {
-      const response = await fetch(`/api/events/${eventId}?lang=${language}`);
+      const response = await fetch(`${API_URL}/api/events/${eventId}?lang=${language}`);
       if (!response.ok) throw new Error("Failed to fetch event");
       return response.json();
     },
@@ -218,7 +219,7 @@ export default function EventDetailsPage() {
     enabled: !!eventId,
     retry: false,
     queryFn: async () => {
-      const response = await fetch(`/api/events/${eventId}/menus?lang=${language}`);
+      const response = await fetch(`${API_URL}/api/events/${eventId}/menus?lang=${language}`);
       if (!response.ok) throw new Error("Failed to fetch menus");
       return response.json();
     },
@@ -237,7 +238,7 @@ export default function EventDetailsPage() {
     enabled: !!selectedMenuId,
     retry: false,
     queryFn: async () => {
-      const response = await fetch(`/api/menus/${selectedMenuId}/dishes?lang=${language}`);
+      const response = await fetch(`${API_URL}/api/menus/${selectedMenuId}/dishes?lang=${language}`);
       if (!response.ok) throw new Error("Failed to fetch dishes");
       return response.json();
     },

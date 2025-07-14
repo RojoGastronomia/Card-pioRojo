@@ -12,6 +12,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { LogIn, FileText, Download } from "lucide-react";
 import { useLanguage } from "@/context/language-context";
+import { API_URL } from '../config';
 
 const statusConfig = {
   pending: {
@@ -183,7 +184,7 @@ export default function OrderHistoryPage() {
 
   const handleConfirmPayment = async (order: Order) => {
     try {
-      const response = await fetch(`/api/orders/${order.id}/payment/confirm`, {
+      const response = await fetch(`${API_URL}/api/orders/${order.id}/payment/confirm`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

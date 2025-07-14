@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { getApiBaseUrl } from '@/lib/queryClient';
 import { DashboardStats } from '@/types/dashboard';
+import { API_URL } from '../config';
 
 /**
  * Hook para buscar estatísticas do dashboard
@@ -16,7 +17,7 @@ export function useStats() {
     
     try {
       console.log('Fetching dashboard statistics...');
-      const response = await fetch(`${getApiBaseUrl()}/api/basic-stats`);
+      const response = await fetch(`${API_URL}/api/basic-stats`);
       
       if (!response.ok) {
         throw new Error(`Server returned ${response.status}: ${response.statusText}`);

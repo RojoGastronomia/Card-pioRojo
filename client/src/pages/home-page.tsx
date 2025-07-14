@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { getQueryFn } from "@/lib/queryClient";
 import { useLanguage } from "@/context/language-context";
+import { API_URL } from '../config';
 
 export default function HomePage() {
   const [, navigate] = useLocation();
@@ -20,7 +21,7 @@ export default function HomePage() {
     queryKey: ["/api/events/popular", language],
     queryFn: async () => {
       try {
-        const response = await fetch(`/api/events/popular?lang=${language}`);
+        const response = await fetch(`${API_URL}/api/events/popular?lang=${language}`);
         if (!response.ok) {
           throw new Error(`Failed to fetch events: ${response.statusText}`);
         }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
+import { API_URL } from '../config';
 
 // Definir tipos localmente para evitar problemas de importação
 interface OrderStatusStats {
@@ -114,7 +115,7 @@ export const useSSEStats = (dateRange?: { start: string; end: string }, autoRefr
         return processStatsData(statsData);
       }
       
-      const response = await fetch(`${getApiBaseUrl()}/api/orders?forceGuaranteed=true`, {
+      const response = await fetch(`${API_URL}/api/orders?forceGuaranteed=true`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -161,7 +162,7 @@ export const useSSEStats = (dateRange?: { start: string; end: string }, autoRefr
       
       setIsLoading(true);
       
-      let url = `${getApiBaseUrl()}/api/basic-stats`;
+      let url = `${API_URL}/api/basic-stats`;
       let params = new URLSearchParams();
       
       // Se há filtro válido, usar o filtro

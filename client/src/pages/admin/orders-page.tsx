@@ -47,6 +47,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { useLanguage } from "@/context/language-context";
+import { API_URL } from '../../config';
 
 export default function AdminOrdersPage() {
   const { toast } = useToast();
@@ -113,7 +114,7 @@ export default function AdminOrdersPage() {
   // Update order status mutation
   const updateOrderStatusMutation = useMutation({
     mutationFn: async ({ orderId, status }: { orderId: number; status: string }) => {
-      const res = await apiRequest("PUT", `/api/orders/${orderId}/status`, { status });
+      const res = await apiRequest("PUT", `${API_URL}/api/orders/${orderId}/status`, { status });
       return await res.json();
     },
     onSuccess: () => {
@@ -137,7 +138,7 @@ export default function AdminOrdersPage() {
   const deleteOrderMutation = useMutation({
     mutationFn: async (orderId: number) => {
       console.log(`[DEBUG] Trying to delete order with ID: ${orderId}`);
-      const response = await apiRequest("DELETE", `/api/orders/${orderId}`);
+      const response = await apiRequest("DELETE", `${API_URL}/api/orders/${orderId}`);
       const result = await response.json();
       console.log(`[DEBUG] Order deletion API call completed for ID: ${orderId}. Result:`, result);
       return result;
@@ -253,7 +254,7 @@ export default function AdminOrdersPage() {
       // Atualizar status do pedido
       const newStatus = selectedBoletoFile ? "aguardando_pagamento" : orderStatusValue;
       
-      const response = await apiRequest("PUT", `/api/orders/${selectedOrder.id}/status`, {
+      const response = await apiRequest("PUT", `${API_URL}/api/orders/${selectedOrder.id}/status`, {
         status: newStatus,
         adminNotes: adminNotesValue
       });
@@ -308,11 +309,11 @@ export default function AdminOrdersPage() {
     if (!selectedOrder) return;
     setIsSavingAdminNotes(true);
     try {
-      await apiRequest("PUT", `/api/orders/${selectedOrder.id}/admin-notes`, {
+      await apiRequest("PUT", `${API_URL}/api/orders/${selectedOrder.id}/admin-notes`, {
         notes: adminNotesValue,
       });
       // Buscar o pedido atualizado do backend
-      const updatedOrderRes = await apiRequest("GET", `/api/orders/${selectedOrder.id}`);
+      const updatedOrderRes = await apiRequest("GET", `${API_URL}/api/orders/${selectedOrder.id}`);
       const updatedOrder = await updatedOrderRes.json();
       setSelectedOrder(updatedOrder);
       setAdminNotesValue(""); // Limpa o campo após atualizar o estado
@@ -350,7 +351,7 @@ export default function AdminOrdersPage() {
         console.log(`FormData key: ${key}, value:`, value);
       }
 
-      const response = await fetch(`http://localhost:5000/api/orders/${selectedOrder.id}/upload-boleto`, {
+      const response = await fetch(`${API_URL}/api/orders/${selectedOrder.id}/upload-boleto`, {
         method: 'POST',
         body: formData,
         credentials: 'include'
@@ -766,7 +767,7 @@ export default function AdminOrdersPage() {
                           const testFormData = new FormData();
                           testFormData.append("boleto", file);
                           
-                          const testResponse = await fetch(`http://localhost:5000/api/test-upload`, {
+                          const testResponse = await fetch(`${API_URL}/api/test-upload`, {
                             method: 'POST',
                             body: testFormData,
                             credentials: 'include'
@@ -837,7 +838,7 @@ export default function AdminOrdersPage() {
                         const formData = new FormData();
                         formData.append("boleto", selectedBoletoFile);
                         
-                        const response = await fetch(`http://localhost:5000/api/test-upload`, {
+                        const response = await fetch(`${API_URL}/api/test-upload`, {
                           method: 'POST',
                           body: formData,
                           credentials: 'include'
@@ -884,7 +885,7 @@ export default function AdminOrdersPage() {
                         const formData = new FormData();
                         formData.append("boleto", selectedBoletoFile);
                         
-                        const response = await fetch(`http://localhost:5000/api/simple-test`, {
+                        const response = await fetch(`${API_URL}/api/simple-test`, {
                           method: 'POST',
                           body: formData,
                           credentials: 'include'

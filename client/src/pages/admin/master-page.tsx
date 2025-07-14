@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { API_URL } from '../config';
 
 // Define interface for performance data
 interface PerformanceData {
@@ -50,7 +51,7 @@ export default function MasterPage() {
   const logsQuery = useQuery<LogEntry[], Error>({
     queryKey: ['systemLogs'],
     queryFn: async () => {
-      const response = await fetch('/api/admin/system/logs');
+      const response = await fetch(`${API_URL}/api/admin/system/logs`);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || `Erro ao buscar logs: ${response.statusText}`);
@@ -65,7 +66,7 @@ export default function MasterPage() {
   const { data: performance } = useQuery<PerformanceData>({
     queryKey: ["/api/admin/system/performance"],
     queryFn: async () => {
-      const response = await fetch('/api/admin/system/performance');
+      const response = await fetch(`${API_URL}/api/admin/system/performance`);
       if (!response.ok) throw new Error('Erro ao buscar performance');
       return response.json();
     },
@@ -77,7 +78,7 @@ export default function MasterPage() {
   // Mutation genérica para ações que não retornam dados
   const actionMutation = useMutation({
     mutationFn: async (endpoint: string) => {
-      const response = await fetch(endpoint, { method: "POST" });
+      const response = await fetch(`${API_URL}${endpoint}`, { method: "POST" });
       if (!response.ok) throw new Error("Erro na operação");
       return response.json();
     },
@@ -100,7 +101,7 @@ export default function MasterPage() {
   // Mutation for triggering the backup
   const backupMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch("/api/backup", { method: "POST" });
+      const response = await fetch(`${API_URL}/api/backup`, { method: "POST" });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
@@ -135,7 +136,7 @@ export default function MasterPage() {
   const handleDownloadBackup = () => {
     if (!backupSuccess) return;
     // O endpoint de download pode ser ajustado conforme a API
-    window.open(`/backups/${backupSuccess.filename}`, '_blank');
+    window.open(`${API_URL}/backups/${backupSuccess.filename}`, '_blank');
   };
 
   const handleBackupClick = () => {
@@ -522,7 +523,7 @@ function PermissionModal({ open, onClose }: { open: boolean, onClose: () => void
   const [error, setError] = useState("");
   const mutation = useMutation({
     mutationFn: async (data: { name: string; description: string }) => {
-      const res = await fetch("/api/admin/access/permissions", {
+      const res = await fetch(`${API_URL}/api/admin/access/permissions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -586,7 +587,7 @@ function PermissionsList() {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["permissions"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/access/permissions");
+      const res = await fetch(`${API_URL}/api/admin/access/permissions`);
       if (!res.ok) throw new Error("Erro ao buscar permissões");
       return res.json();
     },
@@ -596,7 +597,7 @@ function PermissionsList() {
   const [toDelete, setToDelete] = useState<number|null>(null);
   const mutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`/api/admin/access/permissions/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_URL}/api/admin/access/permissions/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error((await res.json()).message || "Erro ao remover permissão");
       return res.json();
     },
@@ -660,7 +661,7 @@ function RoleModal({ open, onClose }: { open: boolean, onClose: () => void }) {
   const { data: permissions, isLoading } = useQuery({
     queryKey: ["permissions"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/access/permissions");
+      const res = await fetch(`${API_URL}/api/admin/access/permissions`);
       if (!res.ok) throw new Error("Erro ao buscar permissões");
       return res.json();
     },
@@ -668,7 +669,7 @@ function RoleModal({ open, onClose }: { open: boolean, onClose: () => void }) {
   });
   const mutation = useMutation({
     mutationFn: async (data: { name: string; permissions: string[] }) => {
-      const res = await fetch("/api/admin/access/roles", {
+      const res = await fetch(`${API_URL}/api/admin/access/roles`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -744,7 +745,7 @@ function RolesList() {
   const { data: roles, isLoading: loadingRoles, isError: errorRoles, error: rolesError } = useQuery({
     queryKey: ["roles"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/access/roles");
+      const res = await fetch(`${API_URL}/api/admin/access/roles`);
       if (!res.ok) throw new Error("Erro ao buscar cargos");
       return res.json();
     },
@@ -753,7 +754,7 @@ function RolesList() {
   const { data: permissions, isLoading: loadingPerms, isError: errorPerms, error: permsError } = useQuery({
     queryKey: ["permissions"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/access/permissions");
+      const res = await fetch(`${API_URL}/api/admin/access/permissions`);
       if (!res.ok) throw new Error("Erro ao buscar permissões");
       return res.json();
     },
@@ -763,7 +764,7 @@ function RolesList() {
   const [toDelete, setToDelete] = useState<number|null>(null);
   const mutationDelete = useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`/api/admin/access/roles/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_URL}/api/admin/access/roles/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error((await res.json()).message || "Erro ao remover cargo");
       return res.json();
     },
@@ -836,7 +837,7 @@ function EditRoleModal({ role, permissions, onClose }: { role: any, permissions:
   const [error, setError] = useState("");
   const mutation = useMutation({
     mutationFn: async (data: { id: number, name: string, permissions: string[] }) => {
-      const res = await fetch(`/api/admin/access/roles/${data.id}`, {
+      const res = await fetch(`${API_URL}/api/admin/access/roles/${data.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: data.name, permissions: data.permissions }),

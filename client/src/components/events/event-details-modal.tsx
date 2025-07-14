@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { X, Menu as MenuIcon, Clock, Loader2 } from "lucide-react";
 import { Select } from "@/components/ui/select";
+import { API_URL } from '../../config';
 
 interface MenuSelection {
   [category: string]: string[];
@@ -92,8 +93,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
       try {
         setMenuItemsLoading(true);
         
-        const apiBase = getApiBaseUrl();
-        const url = `${apiBase}/api/events/${event.id}/menus?language=${language}`;
+        const url = `${API_URL}/api/events/${event.id}/menus?language=${language}`;
         
         console.log(`Carregando menus do evento ${event.id} da URL: ${url}`);
         
@@ -119,12 +119,11 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
       console.log(`🍽️ DEBUGANDO PRATOS 🍽️`);
       console.log(`Buscando pratos para menu ID: ${menuId}...`);
       
-      const apiBase = getApiBaseUrl();
+      const url = `${API_URL}/api/menus/${menuId}/dishes`;
       
-      console.log(`Base da API: ${apiBase}`);
-      console.log(`URL completa da API: ${apiBase}/api/menus/${menuId}/dishes`);
+      console.log(`URL completa da API: ${url}`);
       
-      const response = await fetch(`${apiBase}/api/menus/${menuId}/dishes`);
+      const response = await fetch(url);
       console.log(`Status da resposta: ${response.status}`);
       
       // Tentando pegar o texto da resposta original para debug

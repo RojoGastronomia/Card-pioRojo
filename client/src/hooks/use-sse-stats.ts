@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getApiBaseUrl } from '@/lib/queryClient';
 import { toast as sonnerToast } from 'sonner';
+import { API_URL } from '../config';
 
 // Tipo para categorias de eventos
 type EventCategory = {

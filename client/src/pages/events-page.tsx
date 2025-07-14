@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useLanguage } from "@/context/language-context";
+import { API_URL } from '../config';
 
 export default function EventsPage() {
   const { t, language } = useLanguage();
@@ -26,7 +27,7 @@ export default function EventsPage() {
   const { data: events, isLoading } = useQuery<Event[]>({
     queryKey: ["/api/events", language],
     queryFn: async () => {
-      const response = await fetch(`/api/events?lang=${language}`);
+      const response = await fetch(`${API_URL}/api/events?lang=${language}`);
       if (!response.ok) {
         throw new Error("Failed to fetch events");
       }
