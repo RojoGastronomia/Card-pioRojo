@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "module": "CommonJS",
+    "module": "ES2020",
     "moduleResolution": "node",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
@@ -12,10 +12,13 @@
     "outDir": "dist",
     "resolveJsonModule": true,
     "declaration": false,
-    "sourceMap": false
+    "sourceMap": false,
+    "noEmitOnError": false,
+    "typeRoots": ["./types", "./node_modules/@types"]
   },
   "include": [
-    "**/*.ts"
+    "**/*.ts",
+    "types/**/*.d.ts"
   ],
   "exclude": [
     "node_modules",
@@ -25,6 +28,9 @@
     "shared/**/*",
     "drizzle/**/*",
     "migrations/**/*",
-    "scripts/**/*"
+    "scripts/**/*",
+    "seed.ts",
+    "monitoring.ts",
+    "vite.ts"
   ]
 } 
