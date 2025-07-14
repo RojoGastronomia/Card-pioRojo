@@ -1,30 +1,18 @@
-import { pgTable, serial, text, integer, real, timestamp } from "drizzle-orm/pg-core";
-import { relations } from 'drizzle-orm';
-import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Users table
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  email: text("email").notNull().unique(),
-  password: text("password").notNull(),
-  name: text("name").notNull(),
-  role: text("role").notNull().default("client"),
-  phone: text("phone"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+// Tipos básicos para MongoDB (sem Drizzle)
 
+// User types
 export const userSchema = z.object({
-  id: z.number(),
+  id: z.string().optional(),
   email: z.string().email(),
   name: z.string(),
   username: z.string(),
   password: z.string(),
   role: z.enum(["client", "Administrador", "Comercial"]).default("client"),
-  createdAt: z.date(),
-  updatedAt: z.date()
+  phone: z.string().optional(),
+  createdAt: z.date().optional(),
+  updatedAt: z.date().optional(),
 });
 
 export const insertUserSchema = z.object({
@@ -42,148 +30,98 @@ export const insertUserSchema = z.object({
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+export type User = z.infer<typeof userSchema>;
 
-// Events table
-export const events = pgTable("events", {
-  id: serial("id").primaryKey(),
-  title: text("title").notNull(),
-  description: text("description").notNull(),
-  titleEn: text("title_en"),
-  descriptionEn: text("description_en"),
-  imageUrl: text("image_url").notNull(),
-  location: text("location"),
-  eventType: text("event_type").notNull(),
-  menuOptions: integer("menu_options").notNull().default(2),
-  status: text("status").notNull().default("available"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+// Event types
+export const eventSchema = z.object({
+  id: z.string().optional(),
+  title: z.string(),
+  description: z.string(),
+  titleEn: z.string().optional(),
+  descriptionEn: z.string().optional(),
+  imageUrl: z.string(),
+  location: z.string().optional(),
+  eventType: z.string(),
+  menuOptions: z.number().default(2),
+  status: z.string().default("available"),
+  createdAt: z.date().optional(),
 });
 
-export const insertEventSchema = createInsertSchema(events).omit({ id: true, createdAt: true });
+export const insertEventSchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  titleEn: z.string().optional(),
+  descriptionEn: z.string().optional(),
+  imageUrl: z.string(),
+  location: z.string().optional(),
+  eventType: z.string(),
+  menuOptions: z.number().default(2),
+  status: z.string().default("available"),
+}) as z.ZodType<any>;
+
 export type InsertEvent = z.infer<typeof insertEventSchema>;
-export type Event = typeof events.$inferSelect;
+export type Event = z.infer<typeof eventSchema>;
 
-// Menus table
-export const menus = pgTable("menus", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  description: text("description").notNull(),
-  nameEn: text("name_en"),
-  descriptionEn: text("description_en"),
-  price: real("price").notNull(),
-  image_url: text("image_url"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+// Menu types
+export const menuSchema = z.object({
+  id: z.string().optional(),
+  name: z.string(),
+  description: z.string(),
+  nameEn: z.string().optional(),
+  descriptionEn: z.string().optional(),
+  price: z.number(),
+  image_url: z.string().optional(),
+  createdAt: z.date().optional(),
 });
 
-export const insertMenuSchema = createInsertSchema(menus).omit({ id: true, createdAt: true });
-export type InsertMenu = typeof menus.$inferInsert;
-export type Menu = typeof menus.$inferSelect;
-
-// Dishes table
-export const dishes = pgTable("dishes", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  description: text("description").notNull(),
-  nameEn: text("name_en"),
-  descriptionEn: text("description_en"),
-  price: real("price").notNull(),
-  category: text("category").notNull(),
-  categoryEn: text("category_en"),
-  menuId: integer("menu_id").references(() => menus.id),
-  imageUrl: text("image_url"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+export const insertMenuSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  nameEn: z.string().optional(),
+  descriptionEn: z.string().optional(),
+  price: z.number(),
+  image_url: z.string().optional(),
 });
 
-export const insertDishSchema = createInsertSchema(dishes).omit({ id: true, createdAt: true, menuId: true });
+export type InsertMenu = z.infer<typeof insertMenuSchema>;
+export type Menu = z.infer<typeof menuSchema>;
+
+// Dish types
+export const dishSchema = z.object({
+  id: z.string().optional(),
+  name: z.string(),
+  description: z.string(),
+  nameEn: z.string().optional(),
+  descriptionEn: z.string().optional(),
+  price: z.number(),
+  category: z.string(),
+  categoryEn: z.string().optional(),
+  menuId: z.string().optional(),
+  imageUrl: z.string().optional(),
+  createdAt: z.date().optional(),
+});
+
+export const insertDishSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  nameEn: z.string().optional(),
+  descriptionEn: z.string().optional(),
+  price: z.number(),
+  category: z.string(),
+  categoryEn: z.string().optional(),
+  imageUrl: z.string().optional(),
+}) as z.ZodType<any>;
+
 export type InsertDish = z.infer<typeof insertDishSchema>;
-export type Dish = typeof dishes.$inferSelect;
+export type Dish = z.infer<typeof dishSchema>;
 
-// EventMenus join table
-export const eventMenus = pgTable("event_menus", {
-  id: serial("id").primaryKey(),
-  eventId: integer("event_id").notNull().references(() => events.id),
-  menuId: integer("menu_id").notNull().references(() => menus.id),
-});
-
-// Menu Dishes join table
-export const menuDishes = pgTable("menu_dishes", {
-  id: serial("id").primaryKey(),
-  menuId: integer("menu_id").notNull().references(() => menus.id),
-  dishId: integer("dish_id").notNull().references(() => dishes.id),
-});
-
-// Dishes relation to Menus (Many-to-One)
-export const dishesRelations = relations(dishes, ({ one, many }) => ({
-  menu: one(menus, {
-    fields: [dishes.menuId],
-    references: [menus.id],
-  }),
-  menuDishes: many(menuDishes)
-}));
-
-// Menus relations to Dishes (One-to-Many) and EventMenus (Many-to-Many)
-export const menusRelations = relations(menus, ({ many }) => ({
-  dishes: many(dishes),
-  menuDishes: many(menuDishes),
-  eventMenus: many(eventMenus),
-}));
-
-// Menu Dishes relations
-export const menuDishesRelations = relations(menuDishes, ({ one }) => ({
-  menu: one(menus, {
-    fields: [menuDishes.menuId],
-    references: [menus.id],
-  }),
-  dish: one(dishes, {
-    fields: [menuDishes.dishId],
-    references: [dishes.id],
-  }),
-}));
-
-// Events relations to EventMenus (Many-to-Many)
-export const eventsRelations = relations(events, ({ many }) => ({
-  eventMenus: many(eventMenus),
-}));
-
-// EventMenus relations to Events and Menus (Many-to-One links)
-export const eventMenusRelations = relations(eventMenus, ({ one }) => ({
-  event: one(events, {
-    fields: [eventMenus.eventId],
-    references: [events.id],
-  }),
-  menu: one(menus, {
-    fields: [eventMenus.menuId],
-    references: [menus.id],
-  }),
-}));
-
-// Orders table
-export const orders = pgTable("orders", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
-  eventId: integer("event_id").notNull(),
-  venueId: integer("venue_id"),
-  roomId: integer("room_id"),
-  status: text("status").notNull().default("pending"),
-  date: timestamp("date", { withTimezone: true }).notNull(),
-  guestCount: integer("guest_count").notNull(),
-  menuSelection: text("menu_selection"),
-  location: text("location"),
-  totalAmount: real("total_amount").notNull(),
-  waiterFee: real("waiter_fee").notNull().default(0),
-  additionalInfo: text("additional_info"),
-  adminNotes: text("admin_notes"),
-  boletoUrl: text("boleto_url"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
-
+// Order types
 export const orderSchema = z.object({
-  id: z.number(),
-  userId: z.number(),
-  eventId: z.number(),
-  venueId: z.number().optional(),
-  roomId: z.number().optional(),
+  id: z.string().optional(),
+  userId: z.string(),
+  eventId: z.string(),
+  venueId: z.string().optional(),
+  roomId: z.string().optional(),
   status: z.string().default("pending"),
   date: z.union([
     z.string().transform((str) => new Date(str)),
@@ -197,23 +135,37 @@ export const orderSchema = z.object({
   additionalInfo: z.any().optional(),
   adminNotes: z.string().optional(),
   boletoUrl: z.string().optional(),
-  createdAt: z.date(),
-  updatedAt: z.date()
+  createdAt: z.date().optional(),
+  updatedAt: z.date().optional(),
 });
 
-export const insertOrderSchema = orderSchema.omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true
+export const insertOrderSchema = z.object({
+  userId: z.string(),
+  eventId: z.string(),
+  venueId: z.string().optional(),
+  roomId: z.string().optional(),
+  status: z.string().default("pending"),
+  date: z.union([
+    z.string().transform((str) => new Date(str)),
+    z.date()
+  ]),
+  guestCount: z.number(),
+  menuSelection: z.string().optional(),
+  location: z.string().optional(),
+  totalAmount: z.number(),
+  waiterFee: z.number().default(0),
+  additionalInfo: z.any().optional(),
+  adminNotes: z.string().optional(),
+  boletoUrl: z.string().optional(),
 });
 
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
-export type Order = typeof orders.$inferSelect;
+export type Order = z.infer<typeof orderSchema>;
 
-// Cart type (not stored in database)
+// Cart types
 export type CartItem = {
-  id: number;
-  eventId: number;
+  id: string;
+  eventId: string;
   title: string;
   imageUrl: string;
   date: string;
@@ -226,65 +178,72 @@ export type CartItem = {
   waiterFee?: number;
 };
 
-// Venues table
-export const venues = pgTable("venues", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  address: text("address").notNull(),
-  capacity: integer("capacity").notNull(),
-  description: text("description"),
-  status: text("status").notNull().default("active"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+// Venue types
+export const venueSchema = z.object({
+  id: z.string().optional(),
+  name: z.string(),
+  address: z.string(),
+  capacity: z.number(),
+  description: z.string().optional(),
+  createdAt: z.date().optional(),
 });
 
-export const insertVenueSchema = createInsertSchema(venues).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertVenueSchema = z.object({
+  name: z.string(),
+  address: z.string(),
+  capacity: z.number(),
+  description: z.string().optional(),
+}) as z.ZodType<any>;
+
 export type InsertVenue = z.infer<typeof insertVenueSchema>;
-export type Venue = typeof venues.$inferSelect;
+export type Venue = z.infer<typeof venueSchema>;
 
-// Rooms table
-export const rooms = pgTable("rooms", {
-  id: serial("id").primaryKey(),
-  venueId: integer("venue_id").notNull().references(() => venues.id),
-  name: text("name").notNull(),
-  capacity: integer("capacity").notNull(),
-  description: text("description"),
-  status: text("status").notNull().default("available"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+// Room types
+export const roomSchema = z.object({
+  id: z.string().optional(),
+  name: z.string(),
+  venueId: z.string(),
+  capacity: z.number(),
+  description: z.string().optional(),
+  createdAt: z.date().optional(),
 });
 
-export const insertRoomSchema = createInsertSchema(rooms).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertRoomSchema = z.object({
+  name: z.string(),
+  venueId: z.string(),
+  capacity: z.number(),
+  description: z.string().optional(),
+}) as z.ZodType<any>;
+
 export type InsertRoom = z.infer<typeof insertRoomSchema>;
-export type Room = typeof rooms.$inferSelect;
+export type Room = z.infer<typeof roomSchema>;
 
-// Venues relations to Rooms (One-to-Many)
-export const venuesRelations = relations(venues, ({ many }) => ({
-  rooms: many(rooms),
-  orders: many(orders),
-}));
+// Category types
+export const categorySchema = z.object({
+  id: z.string().optional(),
+  name: z.string(),
+  nameEn: z.string().optional(),
+  description: z.string().optional(),
+  createdAt: z.date().optional(),
+});
 
-// Rooms relations to Venues (Many-to-One)
-export const roomsRelations = relations(rooms, ({ one, many }) => ({
-  venue: one(venues, {
-    fields: [rooms.venueId],
-    references: [venues.id],
-  }),
-  orders: many(orders),
-}));
+export const insertCategorySchema = z.object({
+  name: z.string(),
+  nameEn: z.string().optional(),
+  description: z.string().optional(),
+});
 
-// Categories table
-export const categories = pgTable(
-  "categories",
-  {
-    id: serial("id").primaryKey(),
-    name: text("name").notNull(),
-    nameEn: text("name_en"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  { schema: "public" }
-);
+export type InsertCategory = z.infer<typeof insertCategorySchema>;
+export type Category = z.infer<typeof categorySchema>;
 
-export type Category = typeof categories.$inferSelect;
-export type InsertCategory = typeof categories.$inferInsert;
+// Placeholder tables for compatibility (empty objects)
+export const users = {};
+export const events = {};
+export const menus = {};
+export const dishes = {};
+export const orders = {};
+export const eventMenus = {};
+export const menuDishes = {};
+export const venues = {};
+export const rooms = {};
+export const categories = {};
