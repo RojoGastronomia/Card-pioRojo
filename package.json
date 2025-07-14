@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "cd server && tsx --tsconfig tsconfig.json index.ts",
-    "build": "cd client && npm install && npm run build",
+    "build": "cd shared && npm install && cd ../server && npm install && npm run build",
     "start": "cd server && npx tsx index.ts",
     "postinstall": "cd client && npm install",
     "vercel-build": "npm install && cd client && npm install && npm run build",
