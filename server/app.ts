@@ -12,7 +12,14 @@ const app = express();
 
 // CORS must come first
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: (origin, callback) => {
+    const allowed = (process.env.CORS_ORIGIN || '').split(',');
+    if (!origin || allowed.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   maxAge: 86400,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
