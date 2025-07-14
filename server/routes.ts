@@ -23,9 +23,6 @@ import { getBasicStats } from "./basic-stats";
 import { cache } from './cache';
 import { validateInput, requireRole } from './middleware';
 import { ROLES } from './config';
-import { db } from './db';
-import { settings } from './schema';
-import { eq } from 'drizzle-orm';
 import { fileURLToPath } from 'url';
 import { sendEmail } from './email';
 import bcrypt from 'bcryptjs';
@@ -37,7 +34,6 @@ import {
   type Category, type InsertCategory, categories
 } from "shared/schema";
 import multer from 'multer';
-// import { migrateAllLegacyMenuDishes } from './storage-mongo';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
