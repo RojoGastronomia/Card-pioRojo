@@ -8,7 +8,7 @@
     "create-users": "tsx create-base-users.ts",
     "migrate": "tsx -r dotenv/config db.ts migrate",
     "dev": "tsx --tsconfig tsconfig.json index.ts",
-    "build": "tsc",
+    "build": "cd ../shared && npm install && cd ../server && tsc",
     "start": "node dist/index.js",
     "create-admin": "tsx create-admin.ts"
   },
