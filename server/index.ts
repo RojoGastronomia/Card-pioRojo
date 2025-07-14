@@ -2,9 +2,9 @@ import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes.js";
-import { storage } from "./storage-mongo";
-import logger from "./logger";
-import { connectToMongoDB } from "./db-mongo";
+import { storage } from "./storage-mongo.js";
+import logger from "./logger.js";
+import { connectToMongoDB } from "./db-mongo.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
