@@ -1,3 +1,5 @@
+import { API_URL } from '../config';
+
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
 
 interface RequestOptions {
@@ -21,6 +23,9 @@ export async function apiRequest<T = any>(
 ): Promise<T> {
   // Detectar se é FormData para não definir Content-Type nem serializar como JSON
   const isFormData = data instanceof FormData;
+  
+  // Montar URL absoluta
+  const url = endpoint.startsWith('http') ? endpoint : API_URL.replace(/\/$/, '') + (endpoint.startsWith('/') ? endpoint : '/' + endpoint);
   
   // Se há onUploadProgress e é FormData, usar XMLHttpRequest
   if (options.onUploadProgress && isFormData) {
@@ -57,7 +62,7 @@ export async function apiRequest<T = any>(
         reject(new Error('Request was cancelled'));
       });
       
-      xhr.open(method, endpoint);
+      xhr.open(method, url);
       xhr.withCredentials = true; // Para cookies/session
       
       // Definir headers
@@ -77,7 +82,7 @@ export async function apiRequest<T = any>(
   };
 
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetch(url, {
       method,
       headers,
       // Para FormData, enviar diretamente; para outros dados, serializar como JSON
