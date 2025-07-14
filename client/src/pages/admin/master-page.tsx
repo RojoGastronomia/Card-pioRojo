@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { API_URL } from '../config';
+import { API_URL } from '../../config';
 
 // Define interface for performance data
 interface PerformanceData {
