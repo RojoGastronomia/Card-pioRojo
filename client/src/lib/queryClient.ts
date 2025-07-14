@@ -11,14 +11,7 @@ async function throwIfResNotOk(res: Response) {
 
 // Função para obter a base URL da API
 export function getApiBaseUrl() {
-  // Sempre usar a porta 5000 em desenvolvimento
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    return 'http://localhost:5000';
-  }
-  // Em produção ou outros ambientes, usamos a mesma origem
-  const baseUrl = `${window.location.protocol}//${window.location.hostname}${window.location.port ? `:${window.location.port}` : ''}`;
-  console.log('[API] Usando URL base:', baseUrl);
-  return baseUrl;
+  return API_URL;
 }
 
 export async function apiRequest(
@@ -55,13 +48,13 @@ export async function apiRequest(
   let fullUrl: string;
   if (body instanceof FormData) {
     // Para upload de arquivos, não adicionar parâmetros extras na URL
-    fullUrl = path.startsWith('http') ? path : `${getApiBaseUrl()}${path}`;
+    fullUrl = path.startsWith('http') ? path : `${API_URL}${path}`;
   } else {
     // Para requisições normais, adicionar o parâmetro lang
-  const language = mergedOptions.language || 'pt';
-  const separator = path.includes('?') ? '&' : '?';
-  const urlWithLang = `${path}${separator}lang=${language}`;
-    fullUrl = urlWithLang.startsWith('http') ? urlWithLang : `${getApiBaseUrl()}${urlWithLang}`;
+    const language = mergedOptions.language || 'pt';
+    const separator = path.includes('?') ? '&' : '?';
+    const urlWithLang = `${path}${separator}lang=${language}`;
+    fullUrl = urlWithLang.startsWith('http') ? urlWithLang : `${API_URL}${urlWithLang}`;
   }
 
   console.log(`[API] Iniciando requisição ${method} ${fullUrl}`, body ? { body } : '');
@@ -77,7 +70,7 @@ export async function apiRequest(
       requestBody = JSON.stringify(body);
     }
 
-    const response = await fetch(`${API_URL}${fullUrl}`, {
+    const response = await fetch(fullUrl, {
       method,
       headers,
       body: requestBody,
@@ -145,12 +138,11 @@ export const getQueryFn: <T>(options: {
     const lang = language || 'pt';
     const separator = endpoint.includes('?') ? '&' : '?';
     const urlWithLang = `${endpoint}${separator}lang=${lang}`;
-    
-    const fullUrl = urlWithLang.startsWith('http') ? urlWithLang : `${getApiBaseUrl()}${urlWithLang}`;
+    const fullUrl = urlWithLang.startsWith('http') ? urlWithLang : `${API_URL}${urlWithLang}`;
     console.log(`[QueryFn] Buscando dados de: ${fullUrl}`);
     
     try {
-      const res = await fetch(`${API_URL}${fullUrl}`, {
+      const res = await fetch(fullUrl, {
         credentials: "include",
       });
 
