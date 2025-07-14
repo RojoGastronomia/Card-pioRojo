@@ -3,11 +3,11 @@ import { Strategy as LocalStrategy } from "passport-local";
 import { Strategy as JwtStrategy, ExtractJwt } from "passport-jwt";
 import { Express, Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
-import { storage } from "./storage-mongo";
+import { storage } from "./storage-mongo.js";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
-import { validationSchemas, ROLES } from './config';
-import logger from './logger';
+import { validationSchemas, ROLES } from './config.js';
+import logger from './logger.js';
 
 // Request autenticado
 export type AuthenticatedRequest = Request & {
