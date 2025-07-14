@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 
+console.log("VITE_API_URL:", import.meta.env.VITE_API_URL);
 // API configuration
 export const API_URL = import.meta.env.VITE_API_URL || '/api';
 
