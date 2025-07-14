@@ -17,7 +17,12 @@ app.use(cors({
   origin: (origin, callback) => {
     const allowed = (process.env.CORS_ORIGIN || '').split(',');
     console.log("CORS check:", { origin, allowed });
-    if (!origin || allowed.includes(origin)) {
+    
+    // Aceitar qualquer domínio da Vercel que contenha "card-pio-rojo" ou "rojo-gastronomia"
+    if (!origin || 
+        allowed.includes(origin) || 
+        origin.includes('card-pio-rojo') || 
+        origin.includes('rojo-gastronomia')) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));

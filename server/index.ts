@@ -9,12 +9,28 @@ import { connectToMongoDB } from "./db-mongo.js";
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Configuração de CORS
+console.log("CORS_ORIGIN:", process.env.CORS_ORIGIN);
+
+// Configuração de CORS dinâmica
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
+  origin: (origin, callback) => {
+    const allowed = (process.env.CORS_ORIGIN || '').split(',').map(o => o.trim());
+    console.log("CORS check:", { origin, allowed });
+    
+    // Aceitar qualquer domínio da Vercel que contenha "card-pio-rojo" ou "rojo-gastronomia"
+    if (!origin || 
+        allowed.includes(origin) || 
+        origin.includes('card-pio-rojo') || 
+        origin.includes('rojo-gastronomia')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  maxAge: 86400,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Expires', 'Content-Length']
 }));
 
 // Configuração de rate limiting
