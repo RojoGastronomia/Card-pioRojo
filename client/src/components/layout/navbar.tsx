@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { useLanguage } from "@/context/language-context";
 import LanguageSwitcher from "@/components/ui/language-switcher";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export function Navbar() {
   const [location] = useLocation();
@@ -38,7 +39,9 @@ export function Navbar() {
 
   // Active link style helper
   const isActive = (path: string) => {
-    return location === path ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300";
+    return location === path 
+      ? "border-primary text-primary" 
+      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-300 dark:hover:text-gray-100 dark:hover:border-gray-600";
   };
 
   // Admin navigation links (dentro do componente, para recalcular ao trocar idioma)
@@ -81,7 +84,7 @@ export function Navbar() {
 
   return (
     <>
-      <nav className="bg-white shadow-sm sticky top-0 z-50">
+      <nav className="bg-white dark:bg-gray-900 shadow-sm sticky top-0 z-50 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo and Navigation */}
@@ -104,13 +107,16 @@ export function Navbar() {
 
             {/* Right Side Controls */}
             <div className="flex items-center gap-4">
+              {/* Theme Toggle */}
+              <ThemeToggle />
+              
               {/* Language Switcher */}
               <LanguageSwitcher />
               
               {/* Cart Button */}
               {!isAdminPage && (
                 <button 
-                  className="relative w-10 h-10 flex items-center justify-center text-gray-600 hover:text-gray-900"
+                  className="relative w-10 h-10 flex items-center justify-center text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
                   onClick={openCart}
                 >
                   <ShoppingCart size={20} />
@@ -170,7 +176,7 @@ export function Navbar() {
               {/* Mobile menu button */}
               <button
                 type="button"
-                className="md:hidden bg-white p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
+                className="md:hidden bg-white dark:bg-gray-800 p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-gray-300"
                 onClick={() => setShowMobileMenu(!showMobileMenu)}
               >
                 <Menu size={24} />
@@ -181,7 +187,7 @@ export function Navbar() {
 
         {/* Mobile menu */}
         {showMobileMenu && (
-          <div className="md:hidden">
+          <div className="md:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
             <div className="pt-2 pb-3 space-y-1">
               {links.map((link) => (
                 <Link
@@ -190,7 +196,7 @@ export function Navbar() {
                   className={`block pl-3 pr-4 py-2 text-base font-medium ${
                     location === link.path
                       ? "bg-primary text-white"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100"
                   }`}
                   onClick={() => setShowMobileMenu(false)}
                 >

@@ -2,12 +2,11 @@ import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { runMigrations } from "./db";
 import { createServer, type Server } from "http";
 import cors from "cors";
 import session from "express-session";
 import passport from "passport";
-import { storage } from "./storage";
+import { storage } from "./storage-mongo";
 import { setupAuth } from "./auth";
 import { registerBasicStatsRoute } from "./basic-route";
 import logger from "./logger";
@@ -16,6 +15,7 @@ import { setupRealTimeUpdates } from "./realtime-updates";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
+import { sessionStore } from "./storage-mongo";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -70,7 +70,7 @@ app.use(
     secret: process.env.SESSION_SECRET || "dev-session-secret",
     resave: true,
     saveUninitialized: true,
-    store: storage.sessionStore,
+    store: sessionStore,
     cookie: {
       secure: false, // Desativar secure para desenvolvimento local
       sameSite: "lax",
@@ -131,15 +131,15 @@ async function startServer() {
     console.log("Iniciando servidor...");
     logger.info("Iniciando servidor...");
 
-    console.log("Executando migrações...");
+    console.log("Inicializando MongoDB...");
     try {
-      await runMigrations();
-      console.log("Migrações executadas com sucesso.");
-    } catch (migrationError) {
-      console.error("ERRO NAS MIGRAÇÕES:", migrationError);
-      logger.error({ error: migrationError }, "Erro ao executar migrações");
-      // Continuar mesmo com erro nas migrações
-      console.log("Continuando servidor mesmo com erro nas migrações...");
+      await storage.initialize();
+      console.log("MongoDB inicializado com sucesso.");
+    } catch (mongoError) {
+      console.error("ERRO NO MONGODB:", mongoError);
+      logger.error({ error: mongoError }, "Erro ao inicializar MongoDB");
+      // Continuar mesmo com erro no MongoDB
+      console.log("Continuando servidor mesmo com erro no MongoDB...");
     }
 
     console.log("Registrando rotas...");

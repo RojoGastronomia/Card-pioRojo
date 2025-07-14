@@ -3,143 +3,165 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Boleto Disponível</title>
+    <title>Boleto Disponível - SiteCard</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
+            background: #f3f4f6;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #111;
+        }
+        .container {
             max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
+            margin: 32px auto;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 4px 24px 0 rgba(37,99,235,0.10);
+            overflow: hidden;
         }
         .header {
-            background-color: #f8f9fa;
-            padding: 20px;
+            background: linear-gradient(90deg, #2563eb 60%, #22c55e 100%);
+            color: #fff;
+            padding: 32px 24px 20px 24px;
             text-align: center;
-            border-radius: 8px 8px 0 0;
+        }
+        .header h1 {
+            margin: 0 0 8px 0;
+            font-size: 2rem;
+            letter-spacing: 1px;
+        }
+        .header p {
+            margin: 0;
+            font-size: 1.1rem;
+            opacity: 0.95;
         }
         .content {
-            background-color: #ffffff;
-            padding: 30px;
-            border: 1px solid #e9ecef;
+            padding: 32px 24px 16px 24px;
+            color: #111;
         }
-        .footer {
-            background-color: #f8f9fa;
-            padding: 20px;
+        .boleto-box {
+            background: #dbeafe;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px 0 rgba(37,99,235,0.06);
+            padding: 24px;
+            margin-bottom: 24px;
             text-align: center;
-            border-radius: 0 0 8px 8px;
-            font-size: 14px;
-            color: #6c757d;
+            border: 1px solid #93c5fd;
         }
-        .boleto-info {
-            background-color: #e3f2fd;
-            border: 1px solid #2196f3;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 20px 0;
+        .boleto-box h2 {
+            color: #1e40af;
+            margin: 0 0 12px 0;
         }
-        .boleto-button {
-            display: inline-block;
-            background-color: #2196f3;
-            color: white;
-            padding: 12px 24px;
-            text-decoration: none;
-            border-radius: 6px;
-            margin: 10px 0;
-        }
-        .boleto-button:hover {
-            background-color: #1976d2;
-        }
-        .order-details {
-            background-color: #f8f9fa;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 20px 0;
-        }
-        .order-details h3 {
-            margin-top: 0;
-            color: #495057;
-        }
-        .order-details p {
+        .boleto-box p {
+            color: #1e3a8a;
             margin: 8px 0;
         }
-        .system-access {
-            background-color: #d4edda;
-            border: 1px solid #c3e6cb;
+        .boleto-btn {
+            display: inline-block;
+            background: linear-gradient(90deg, #22c55e 60%, #2563eb 100%);
+            color: #fff;
+            font-weight: bold;
+            padding: 14px 32px;
             border-radius: 8px;
-            padding: 20px;
-            margin: 20px 0;
+            text-decoration: none;
+            font-size: 1.1rem;
+            margin-top: 12px;
+            box-shadow: 0 2px 8px 0 rgba(34,197,94,0.10);
+            transition: background 0.2s;
         }
-        .system-access h3 {
-            color: #155724;
+        .boleto-btn:hover {
+            background: linear-gradient(90deg, #2563eb 60%, #22c55e 100%);
+        }
+        .details {
+            background: #f8f9fa;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px 0 rgba(37,99,235,0.06);
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid #e9ecef;
+        }
+        .details h2 {
+            margin-top: 0;
+            color: #1e40af;
+            font-size: 1.2rem;
+        }
+        .details p {
+            margin: 8px 0;
+            font-size: 1rem;
+            color: #111;
+        }
+        .instructions {
+            background: #dcfce7;
+            border: 1px solid #22c55e33;
+            border-radius: 12px;
+            padding: 18px 20px;
+            margin-bottom: 24px;
+        }
+        .instructions h3 {
+            color: #15803d;
             margin-top: 0;
         }
-        .system-button {
-            display: inline-block;
-            background-color: #28a745;
-            color: white;
-            padding: 12px 24px;
-            text-decoration: none;
-            border-radius: 6px;
-            margin: 10px 0;
+        .instructions ul {
+            color: #14532d;
+            margin: 0 0 10px 18px;
+            padding: 0;
         }
-        .system-button:hover {
-            background-color: #218838;
+        .footer {
+            background: #f8f9fa;
+            color: #495057;
+            text-align: center;
+            padding: 18px 12px;
+            font-size: 0.98rem;
+            border-top: 1px solid #dee2e6;
+        }
+        @media (max-width: 600px) {
+            .container, .content, .header, .footer {
+                padding-left: 6px !important;
+                padding-right: 6px !important;
+            }
+            .details, .boleto-box, .instructions {
+                padding: 12px 8px !important;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Boleto Disponível</h1>
-        <p>Olá {{userName}}, seu boleto está pronto!</p>
-    </div>
-
-    <div class="content">
-        <p>O boleto para o seu pedido foi gerado e está disponível para pagamento.</p>
-
-        <div class="boleto-info">
-            <h3>📄 Boleto Bancário</h3>
-            <p>O boleto está anexado a este email e também pode ser acessado através do link abaixo:</p>
-            <a href="{{boletoUrl}}" class="boleto-button" target="_blank">
-                📥 Baixar Boleto
-            </a>
-            <p><strong>Vencimento:</strong> 3 dias úteis após a geração</p>
+    <div class="container">
+        <div class="header">
+            <h1>📄 Boleto Disponível</h1>
+            <p>Olá <strong>{{userName}}</strong>, seu boleto está pronto para pagamento!</p>
         </div>
-
-        <div class="system-access">
-            <h3>💻 Acesso pelo Sistema</h3>
-            <p>Você também pode acessar e baixar o boleto diretamente pelo nosso sistema:</p>
-            <a href="{{systemUrl}}" class="system-button" target="_blank">
-                🔗 Acessar Meus Pedidos
-            </a>
-            <p><small>Faça login na sua conta e vá em "Meus Pedidos" → "Detalhes" → "Baixar Boleto"</small></p>
+        <div class="content">
+            <div class="boleto-box">
+                <h2>💳 Seu Boleto</h2>
+                <p>O boleto está anexado a este email e também pode ser baixado pelo botão abaixo:</p>
+                <a href="{{boletoUrl}}" class="boleto-btn" target="_blank">📥 Baixar Boleto</a>
+                <p style="margin-top:10px;"><strong>Vencimento:</strong> 3 dias úteis após a geração</p>
+            </div>
+            <div class="details">
+                <h2>📋 Detalhes do Pedido #{{orderId}}</h2>
+                <p><strong>Evento:</strong> {{eventName}}</p>
+                <p><strong>Data do Evento:</strong> {{eventDate}}</p>
+                <p><strong>Local:</strong> <span style="color:#1e40af;font-weight:600">{{location}}</span></p>
+                <p><strong>Valor Total:</strong> <span style="color:#15803d;font-weight:600">R$ {{totalAmount}}</span></p>
+            </div>
+            <div class="instructions">
+                <h3>Instruções Importantes</h3>
+                <ul>
+                    <li>O boleto vence em 3 dias úteis</li>
+                    <li>Após o pagamento, pode levar até 3 dias úteis para a confirmação bancária</li>
+                    <li>Guarde o comprovante de pagamento</li>
+                    <li>Você pode acompanhar o status do pagamento em "Meus Pedidos"</li>
+                </ul>
+                <a href="{{systemUrl}}" class="boleto-btn" style="background:linear-gradient(90deg,#2563eb 60%,#22c55e 100%);margin-top:0;" target="_blank">🔗 Acessar Meus Pedidos</a>
+            </div>
+            <p style="margin-top:18px;color:#111;">Em caso de dúvidas, entre em contato pelo email <a href="mailto:suporte@rojogastronomia.com" style="color:#1e40af;">suporte@rojogastronomia.com</a> ou pelo telefone <span style="color:#1e40af;">(11) 1234-5678</span>.</p>
+            <p style="margin-top:18px;color:#111;">Obrigado por escolher nossos serviços!<br><strong>Equipe SiteCard</strong></p>
         </div>
-
-        <div class="order-details">
-            <h3>📋 Detalhes do Pedido</h3>
-            <p><strong>Número do Pedido:</strong> #{{orderId}}</p>
-            <p><strong>Evento:</strong> {{eventName}}</p>
-            <p><strong>Data do Evento:</strong> {{eventDate}}</p>
-            <p><strong>Valor Total:</strong> R$ {{totalAmount}}</p>
+        <div class="footer">
+            <p>Este é um email automático, por favor não responda.<br>© 2024 SiteCard. Todos os direitos reservados.</p>
         </div>
-
-        <p><strong>Instruções importantes:</strong></p>
-        <ul>
-            <li>O boleto vence em 3 dias úteis</li>
-            <li>Após o pagamento, pode levar até 3 dias úteis para a confirmação bancária</li>
-            <li>Guarde o comprovante de pagamento</li>
-            <li>Você pode acompanhar o status do pagamento em "Meus Pedidos"</li>
-            <li>Em caso de dúvidas, entre em contato conosco</li>
-        </ul>
-
-        <p>Obrigado por escolher nossos serviços!</p>
-    </div>
-
-    <div class="footer">
-        <p>Este é um email automático, não responda a esta mensagem.</p>
-        <p>Em caso de dúvidas, entre em contato conosco pelo email suporte@rojogastronomia.com</p>
-        <p>© 2024 Rojo Gastronomia. Todos os direitos reservados.</p>
     </div>
 </body>
 </html> 

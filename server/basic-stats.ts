@@ -117,11 +117,15 @@ export async function getBasicStats(start?: string, end?: string) {
       
       // Filtrar pedidos por status
       const pendingOrders = filteredOrders.filter(order => order.status === 'pending');
+      const aguardandoPagamentoOrders = filteredOrders.filter(order => order.status === 'aguardando_pagamento');
       const confirmedOrders = filteredOrders.filter(order => order.status === 'confirmed');
+      const cancelledOrders = filteredOrders.filter(order => order.status === 'cancelled');
       const completedOrders = filteredOrders.filter(order => order.status === 'completed');
       
       console.log(`[Stats] Pedidos pendentes: ${pendingOrders.length}`);
+      console.log(`[Stats] Pedidos aguardando pagamento: ${aguardandoPagamentoOrders.length}`);
       console.log(`[Stats] Pedidos confirmados: ${confirmedOrders.length}`);
+      console.log(`[Stats] Pedidos cancelados: ${cancelledOrders.length}`);
       console.log(`[Stats] Pedidos concluídos: ${completedOrders.length}`);
       
       // Definir limite para valores anormais
@@ -192,10 +196,12 @@ export async function getBasicStats(start?: string, end?: string) {
     
     // Status de pedidos para o dashboard
     const pendingOrders = filteredOrders.filter(order => order.status === 'pending');
+    const aguardandoPagamentoOrders = filteredOrders.filter(order => order.status === 'aguardando_pagamento');
     const confirmedOrders = filteredOrders.filter(order => order.status === 'confirmed');
+    const cancelledOrders = filteredOrders.filter(order => order.status === 'cancelled');
     const completedOrders = filteredOrders.filter(order => order.status === 'completed');
     
-    console.log(`[Stats] Estatísticas de pedidos - pendentes: ${pendingOrders.length}, confirmados: ${confirmedOrders.length}, concluídos: ${completedOrders.length}`);
+    console.log(`[Stats] Estatísticas de pedidos - pendentes: ${pendingOrders.length}, aguardando pagamento: ${aguardandoPagamentoOrders.length}, confirmados: ${confirmedOrders.length}, cancelados: ${cancelledOrders.length}, concluídos: ${completedOrders.length}`);
     
     // Calcular estatísticas por mês usando dados de PEDIDOS (não eventos)
     const currentDate = new Date();
@@ -254,105 +260,100 @@ export async function getBasicStats(start?: string, end?: string) {
     console.log(`[Stats] Dados de eventsPerMonth (formattedOrdersPerMonth):`, JSON.stringify(formattedOrdersPerMonth, null, 2));
     
     // Calcular faturamento potencial dos pedidos PENDENTES + CONFIRMADOS
-    // APENAS para meses atuais e futuros (não incluir meses já passados)
-    const pendingOrdersRevenue = pendingOrders.reduce((total, order) => {
-      // Verificar se o pedido é para um mês atual ou futuro
-      let isCurrentOrFutureOrder = false;
+    let potentialPendingOrders: any[] = [];
+    let potentialConfirmedOrders: any[] = [];
+    if (start && end) {
+      // Com filtro: só pedidos dentro do período filtrado
+      potentialPendingOrders = filteredOrders.filter(order => order.status === 'pending');
+      potentialConfirmedOrders = filteredOrders.filter(order => order.status === 'confirmed');
+    } else {
+      // Sem filtro: todos os pedidos
+      potentialPendingOrders = allOrders.filter(order => order.status === 'pending');
+      potentialConfirmedOrders = allOrders.filter(order => order.status === 'confirmed');
+    }
+
+    const potentialPendingRevenue = potentialPendingOrders.reduce((total, order) => {
+      // Quando há filtro aplicado, considerar todos os pedidos do período
+      // Quando não há filtro, aplicar a lógica de "atual ou futuro"
+      let shouldInclude = true;
       
+      if (!start || !end) {
+        // Sem filtro: aplicar lógica de "atual ou futuro"
+      let isCurrentOrFutureOrder = false;
       if (order.date) {
         const eventDate = typeof order.date === 'string' ? new Date(order.date) : order.date;
         const eventYear = eventDate.getFullYear();
         const eventMonth = eventDate.getMonth();
-        
-        // IGNORAR datas muito antigas (antes de 2020)
-        if (eventYear < 2020) {
-          console.log(`[Stats] Pedido ${order.id} IGNORADO no potencial - data muito antiga: ${eventYear}`);
-          return total;
-        }
-        
-        // Pedido é potencial se: ano maior OU mesmo ano e mês igual ou maior (atual ou futuro)
+          if (eventYear < 2020) return total;
         isCurrentOrFutureOrder = eventYear > currentYear || (eventYear === currentYear && eventMonth >= currentMonth);
       } else if (order.createdAt) {
-        // Se não tem data do evento, usar data de criação
         const createdDate = typeof order.createdAt === 'string' ? new Date(order.createdAt) : order.createdAt;
         const createdYear = createdDate.getFullYear();
         const createdMonth = createdDate.getMonth();
-        
-        // IGNORAR datas muito antigas (antes de 2020)
-        if (createdYear < 2020) {
-          console.log(`[Stats] Pedido ${order.id} IGNORADO no potencial - data de criação muito antiga: ${createdYear}`);
-          return total;
-        }
-        
+          if (createdYear < 2020) return total;
         isCurrentOrFutureOrder = createdYear > currentYear || (createdYear === currentYear && createdMonth >= currentMonth);
       }
+        shouldInclude = isCurrentOrFutureOrder;
+      }
       
-      // Só incluir no potencial se for pedido atual ou futuro
-      if (isCurrentOrFutureOrder) {
+      if (shouldInclude) {
         const safeAmount = order.totalAmount && order.totalAmount > MAX_REASONABLE_ORDER_VALUE ? 
           MAX_REASONABLE_ORDER_VALUE : (order.totalAmount || 0);
         return total + safeAmount;
       }
-      
       return total;
     }, 0);
     
-    const confirmedOrdersRevenue = confirmedOrders.reduce((total, order) => {
-      // Verificar se o pedido é para um mês atual ou futuro
-      let isCurrentOrFutureOrder = false;
+    const potentialConfirmedRevenue = potentialConfirmedOrders.reduce((total, order) => {
+      // Quando há filtro aplicado, considerar todos os pedidos do período
+      // Quando não há filtro, aplicar a lógica de "atual ou futuro"
+      let shouldInclude = true;
       
+      if (!start || !end) {
+        // Sem filtro: aplicar lógica de "atual ou futuro"
+      let isCurrentOrFutureOrder = false;
       if (order.date) {
         const eventDate = typeof order.date === 'string' ? new Date(order.date) : order.date;
         const eventYear = eventDate.getFullYear();
         const eventMonth = eventDate.getMonth();
-        
-        // IGNORAR datas muito antigas (antes de 2020)
-        if (eventYear < 2020) {
-          console.log(`[Stats] Pedido ${order.id} IGNORADO no potencial - data muito antiga: ${eventYear}`);
-          return total;
-        }
-        
-        // Pedido é potencial se: ano maior OU mesmo ano e mês igual ou maior (atual ou futuro)
+          if (eventYear < 2020) return total;
         isCurrentOrFutureOrder = eventYear > currentYear || (eventYear === currentYear && eventMonth >= currentMonth);
       } else if (order.createdAt) {
-        // Se não tem data do evento, usar data de criação
         const createdDate = typeof order.createdAt === 'string' ? new Date(order.createdAt) : order.createdAt;
         const createdYear = createdDate.getFullYear();
         const createdMonth = createdDate.getMonth();
-        
-        // IGNORAR datas muito antigas (antes de 2020)
-        if (createdYear < 2020) {
-          console.log(`[Stats] Pedido ${order.id} IGNORADO no potencial - data de criação muito antiga: ${createdYear}`);
-          return total;
-        }
-        
+          if (createdYear < 2020) return total;
         isCurrentOrFutureOrder = createdYear > currentYear || (createdYear === currentYear && createdMonth >= currentMonth);
       }
+        shouldInclude = isCurrentOrFutureOrder;
+      }
       
-      // Só incluir no potencial se for pedido atual ou futuro
-      if (isCurrentOrFutureOrder) {
+      if (shouldInclude) {
         const safeAmount = order.totalAmount && order.totalAmount > MAX_REASONABLE_ORDER_VALUE ? 
           MAX_REASONABLE_ORDER_VALUE : (order.totalAmount || 0);
         return total + safeAmount;
       }
-      
       return total;
     }, 0);
     
-    // Total potencial = pendentes atuais/futuros + confirmados atuais/futuros
-    const calculatedPotentialRevenue = pendingOrdersRevenue + confirmedOrdersRevenue;
-    
-    console.log(`[Stats] Faturamento potencial calculado (MESES ATUAIS E FUTUROS): ${calculatedPotentialRevenue} (pendentes atuais/futuros: ${pendingOrdersRevenue}, confirmados atuais/futuros: ${confirmedOrdersRevenue})`);
-    console.log(`[Stats] Faturamento potencial da API: ${potentialRevenue}`);
+    const calculatedPotentialRevenue = potentialPendingRevenue + potentialConfirmedRevenue;
+    console.log(`[Stats] Faturamento potencial calculado (filtro: ${!!(start && end)}): ${calculatedPotentialRevenue}`);
+    console.log(`[Stats] BREAKDOWN - Pendentes: ${potentialPendingRevenue}, Confirmados: ${potentialConfirmedRevenue}`);
     
     // Debug adicional para entender o problema do potencial
     console.log(`[Stats] DEBUG POTENCIAL - Filtro ativo: ${!!(start && end)}`);
-    console.log(`[Stats] DEBUG POTENCIAL - Pedidos pendentes totais: ${pendingOrders.length}`);
-    console.log(`[Stats] DEBUG POTENCIAL - Pedidos confirmados totais: ${confirmedOrders.length}`);
+    console.log(`[Stats] DEBUG POTENCIAL - Pedidos pendentes totais: ${potentialPendingOrders.length}`);
+    console.log(`[Stats] DEBUG POTENCIAL - Pedidos confirmados totais: ${potentialConfirmedOrders.length}`);
     console.log(`[Stats] DEBUG POTENCIAL - Mês atual: ${currentMonth + 1}/${currentYear}`);
     
+    if (start && end) {
+      console.log(`[Stats] FILTRO ATIVO - Considerando TODOS os pedidos do período filtrado para potencial faturamento`);
+    } else {
+      console.log(`[Stats] SEM FILTRO - Aplicando lógica de "atual ou futuro" para potencial faturamento`);
+    }
+    
     // Log detalhado dos pedidos pendentes
-    pendingOrders.forEach((order, index) => {
+    potentialPendingOrders.forEach((order, index) => {
       const orderDate = order.date ? new Date(order.date) : (order.createdAt ? new Date(order.createdAt) : null);
       const isCurrentOrFuture = orderDate ? (
         orderDate.getFullYear() > currentYear || 
@@ -362,7 +363,7 @@ export async function getBasicStats(start?: string, end?: string) {
     });
     
     // Log detalhado dos pedidos confirmados
-    confirmedOrders.forEach((order, index) => {
+    potentialConfirmedOrders.forEach((order, index) => {
       const orderDate = order.date ? new Date(order.date) : (order.createdAt ? new Date(order.createdAt) : null);
       const isCurrentOrFuture = orderDate ? (
         orderDate.getFullYear() > currentYear || 
@@ -387,12 +388,14 @@ export async function getBasicStats(start?: string, end?: string) {
     
     console.log(`[Stats] Receita efetiva para exibição - Realizada: ${effectiveTotalRevenue}, Potencial: ${effectiveConfirmedRevenue}`);
     
-    console.log(`[Stats] Categorias de PEDIDOS REAIS - Pendentes: ${pendingOrders.length}, Confirmados: ${confirmedOrders.length}, Concluídos: ${completedOrders.length}`);
+    console.log(`[Stats] Categorias de PEDIDOS REAIS - Pendentes: ${pendingOrders.length}, Aguardando Pagamento: ${aguardandoPagamentoOrders.length}, Confirmados: ${confirmedOrders.length}, Cancelados: ${cancelledOrders.length}, Concluídos: ${completedOrders.length}`);
     
     // Formatar dados de categorias de pedidos (valores reais, sem ajustes)
     const orderCategories = [
       { name: "Pendentes", value: pendingOrders.length },
+      { name: "Aguardando Pagamento", value: aguardandoPagamentoOrders.length },
       { name: "Confirmados", value: confirmedOrders.length },
+      { name: "Cancelados", value: cancelledOrders.length },
       { name: "Concluídos", value: completedOrders.length }
     ];
     
@@ -423,7 +426,8 @@ export async function getBasicStats(start?: string, end?: string) {
       // NÃO alterar o total de eventos - sempre mostrar o total real
       // dashboardTotalEvents = filteredEvents.length; // REMOVIDO - sempre usar totalEvents
       dashboardTotalOrders = filteredOrders.length;
-      dashboardTotalRevenue = completedOrders.reduce((total, order) => {
+      // Com filtro: calcular receita de TODOS os pedidos do período filtrado
+      dashboardTotalRevenue = filteredOrders.reduce((total, order) => {
         const safeAmount = order.totalAmount && order.totalAmount > MAX_REASONABLE_ORDER_VALUE ? 
           MAX_REASONABLE_ORDER_VALUE : (order.totalAmount || 0);
         return total + safeAmount;
@@ -445,7 +449,9 @@ export async function getBasicStats(start?: string, end?: string) {
       recentOrders: processedOrders,
       ordersByStatus: {
         pending: pendingOrders.length,
+        aguardandoPagamento: aguardandoPagamentoOrders.length,
         confirmed: confirmedOrders.length,
+        cancelled: cancelledOrders.length,
         completed: completedOrders.length,
         total: filteredOrders.length
       },
@@ -486,7 +492,9 @@ export async function getBasicStats(start?: string, end?: string) {
       recentOrders: [],
       ordersByStatus: {
         pending: 0,
+        aguardandoPagamento: 0,
         confirmed: 0,
+        cancelled: 0,
         completed: 0,
         total: 0
       },
@@ -506,7 +514,9 @@ export async function getBasicStats(start?: string, end?: string) {
       ],
       eventCategories: [
         { name: "Pendentes", value: 0 },
+        { name: "Aguardando Pagamento", value: 0 },
         { name: "Confirmados", value: 0 },
+        { name: "Cancelados", value: 0 },
         { name: "Concluídos", value: 0 }
       ],
       dashboardTotals: {

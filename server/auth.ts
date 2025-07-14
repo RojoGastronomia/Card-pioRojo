@@ -38,6 +38,13 @@ declare global {
   namespace Express {
     interface User extends SelectUser {}
   }
+  
+  var pendingPixPayments: {
+    [key: string]: {
+      status: string;
+      createdAt: Date;
+    };
+  } | undefined;
 }
 
 // Cache implementation

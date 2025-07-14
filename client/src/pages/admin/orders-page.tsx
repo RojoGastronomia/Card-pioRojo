@@ -210,6 +210,9 @@ export default function AdminOrdersPage() {
     );
   };
 
+  // Filtro para eventos pendentes (aguardando entrega)
+  const pendingDeliveryOrders = orders?.filter((order: Order) => order.status !== 'completed' && order.status !== 'cancelled');
+
   // Filter orders based on search, status, and date
   const filteredOrders = orders?.filter((order: Order) => {
     const eventTitle = getEventTitle(order.eventId);
@@ -404,7 +407,7 @@ export default function AdminOrdersPage() {
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">{t('admin', 'orders')}</h1>
+        <h1 className="text-2xl font-bold text-card-foreground">{t('admin', 'orders')}</h1>
       </div>
 
       {/* Status Tabs */}
@@ -416,6 +419,7 @@ export default function AdminOrdersPage() {
           <TabsTrigger value="confirmed" onClick={() => setStatusFilter("confirmed")}>Confirmados</TabsTrigger>
           <TabsTrigger value="completed" onClick={() => setStatusFilter("completed")}>Concluídos</TabsTrigger>
           <TabsTrigger value="cancelled" onClick={() => setStatusFilter("cancelled")}>Cancelados</TabsTrigger>
+          <TabsTrigger value="pending_delivery" onClick={() => setStatusFilter("pending_delivery")}>Aguardando Entrega</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -485,6 +489,62 @@ export default function AdminOrdersPage() {
               <Skeleton className="h-20 w-full mb-2" />
               <Skeleton className="h-20 w-full" />
             </div>
+          ) : statusFilter === "pending_delivery" ? (
+            pendingDeliveryOrders && pendingDeliveryOrders.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Evento</TableHead>
+                    <TableHead>Data do Evento</TableHead>
+                    <TableHead>N° Convidados</TableHead>
+                    <TableHead>Total</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pendingDeliveryOrders.map((order) => (
+                    <TableRow key={order.id} className="hover:bg-muted transition-colors">
+                      <TableCell>#{order.id}</TableCell>
+                      <TableCell>{getUserName(order.userId)}</TableCell>
+                      <TableCell>{getEventTitle(order.eventId)}</TableCell>
+                      <TableCell>{formatDate(order.date)}</TableCell>
+                      <TableCell>{order.guestCount}</TableCell>
+                      <TableCell>{formatCurrency(order.totalAmount)}</TableCell>
+                      <TableCell>{getStatusBadge(order.status)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end space-x-2">
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handleViewOrderDetails(order)}
+                          >
+                            <PencilLine className="h-4 w-4 text-gray-500" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => {
+                              if (window.confirm('Tem certeza que deseja excluir este pedido?')) {
+                                handleDeleteOrder(String(order.id));
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500">Nenhum pedido aguardando entrega.</p>
+              </div>
+            )
           ) : filteredOrders && filteredOrders.length > 0 ? (
             <Table>
               <TableHeader>
@@ -501,7 +561,7 @@ export default function AdminOrdersPage() {
               </TableHeader>
               <TableBody>
                 {filteredOrders.map((order) => (
-                  <TableRow key={order.id} className="hover:bg-gray-50">
+                  <TableRow key={order.id} className="hover:bg-muted transition-colors">
                     <TableCell>#{order.id}</TableCell>
                     <TableCell>{getUserName(order.userId)}</TableCell>
                     <TableCell>{getEventTitle(order.eventId)}</TableCell>
@@ -546,7 +606,7 @@ export default function AdminOrdersPage() {
       {/* Order Details Dialog */}
       {selectedOrder && (
         <Dialog open={showDetailsDialog} onOpenChange={handleCloseDetailsDialog}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Detalhes do Pedido #{selectedOrder.id}</DialogTitle>
               <DialogDescription>
@@ -557,34 +617,35 @@ export default function AdminOrdersPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">Cliente</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground">Cliente</h3>
                   <div className="mt-1 flex items-center">
-                    <UserIcon className="h-5 w-5 text-gray-400 mr-2" />
-                    <p className="text-gray-900">{getUserName(selectedOrder.userId)}</p>
+                    <UserIcon className="h-5 w-5 text-muted-foreground mr-2" />
+                    <p className="text-card-foreground">{getUserName(selectedOrder.userId)}</p>
                   </div>
                 </div>
                 
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">Evento</h3>
-                  <p className="mt-1 text-gray-900">{getEventTitle(selectedOrder.eventId)}</p>
+                  <h3 className="text-sm font-medium text-muted-foreground">Evento</h3>
+                  <p className="mt-1 text-card-foreground">{getEventTitle(selectedOrder.eventId)}</p>
                 </div>
                 
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">Data do Evento</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground">Data do Evento</h3>
                   <div className="mt-1 flex items-center">
-                    <Calendar className="h-5 w-5 text-gray-400 mr-2" />
-                    <p className="text-gray-900">{formatDate(selectedOrder.date)}</p>
+                    <Calendar className="h-5 w-5 text-muted-foreground mr-2" />
+                    <p className="text-card-foreground">{formatDate(selectedOrder.date)}</p>
                   </div>
                 </div>
                 
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">Menu Selecionado</h3>
-                  <p className="mt-1 text-gray-900">{selectedOrder.menuSelection || "N/A"}</p>
+                  <h3 className="text-sm font-medium text-muted-foreground">Menu Selecionado</h3>
+                  <p className="mt-1 text-card-foreground">{selectedOrder.menuSelection || "N/A"}</p>
                 </div>
               </div>
               
               <div className="space-y-4">
                 <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">Número de Convidados</h3>
                   <h3 className="text-sm font-medium text-gray-500">Número de Convidados</h3>
                   <p className="mt-1 text-gray-900">{selectedOrder.guestCount}</p>
                 </div>
@@ -646,9 +707,16 @@ export default function AdminOrdersPage() {
                       <div className="text-gray-400 italic">Nenhuma observação registrada ainda.</div>
                     )}
                     {notesArr.map((note, idx) => (
-                      <div key={idx} className="p-2 bg-gray-100 rounded">
-                        <div className="text-gray-800 whitespace-pre-line">{note.text}</div>
-                        <div className="text-xs text-gray-500 mt-1">
+                      <div key={idx} className="p-2 bg-muted rounded">
+                        <div className="text-card-foreground whitespace-pre-line">
+                          <input
+                            type="text"
+                            className="w-full p-2 border border-border rounded-md mb-2 bg-muted text-card-foreground"
+                            value={note.text}
+                            readOnly
+                          />
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
                           {note.author} — {note.date ? new Date(note.date).toLocaleString('pt-BR') : ""}
                         </div>
                       </div>
@@ -657,7 +725,7 @@ export default function AdminOrdersPage() {
                 );
               })()}
               <textarea
-                className="mt-1 w-full min-h-[60px] border rounded-md p-2 text-gray-900"
+                className="mt-1 w-full min-h-[60px] border border-border rounded-md p-2 bg-muted text-card-foreground"
                 value={adminNotesValue}
                 onChange={e => setAdminNotesValue(e.target.value)}
                 placeholder="Adicione observações administrativas aqui..."
@@ -724,9 +792,9 @@ export default function AdminOrdersPage() {
                 />
                 <label
                   htmlFor="boleto-upload"
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary cursor-pointer transition-colors"
+                  className="inline-flex items-center px-4 py-2 border border-border rounded-md shadow-sm text-sm font-medium text-card-foreground bg-muted hover:bg-card focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary cursor-pointer transition-colors"
                 >
-                  <Upload className="h-4 w-4 mr-2" />
+                  <Upload className="h-4 w-4 mr-2 text-muted-foreground" />
                   Escolher Arquivo PDF
                 </label>
               </div>

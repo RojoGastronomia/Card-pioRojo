@@ -68,7 +68,7 @@ export function OrderReviewModal({
           {/* Resumo do Pedido */}
           <div className="space-y-2">
             <h3 className="font-medium">Resumo do Pedido</h3>
-            <div className="bg-muted p-4 rounded-lg space-y-2">
+            <div className="bg-card text-card-foreground p-4 rounded-lg space-y-2">
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Total do pedido:</span>
                 <span className="font-medium">{formatCurrency(order.totalAmount)}</span>

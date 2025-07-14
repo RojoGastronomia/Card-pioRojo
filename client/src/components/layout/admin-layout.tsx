@@ -13,7 +13,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   return (
     <>
-      <div className="bg-white shadow mb-6">
+      <div className="bg-card shadow mb-6 border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex overflow-x-auto py-3 gap-2">
             <Link href="/admin/dashboard">

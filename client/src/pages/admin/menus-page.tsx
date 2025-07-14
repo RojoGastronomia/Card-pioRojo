@@ -262,19 +262,19 @@ export default function AdminMenusPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-3">
               <ChefHat className="h-8 w-8 text-primary" />
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-2xl font-bold text-card-foreground">
                 Gerenciar Pratos do Menu: {currentMenu.name}
               </h1>
             </div>
-            <p className="text-gray-600">
+            <p className="text-muted-foreground">
               {currentMenu.description} • {formatCurrency(currentMenu.price)} por pessoa
             </p>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               Adicione ou remova pratos deste menu específico. Os pratos aqui listados são exclusivos deste menu.
             </p>
           </div>
         ) : (
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-card-foreground">
             Gerenciar Pratos do Menu
           </h1>
         )}
@@ -282,8 +282,8 @@ export default function AdminMenusPage() {
 
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-2">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-            <p className="text-sm text-blue-800 font-medium">
+          <div className="bg-muted border border-border rounded-lg px-3 py-2">
+            <p className="text-sm text-card-foreground font-medium">
               {dishes?.length || 0} prato(s) no menu
             </p>
           </div>
@@ -310,10 +310,10 @@ export default function AdminMenusPage() {
         <Card>
           <CardContent className="p-8">
             <div className="text-center">
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              <h2 className="text-xl font-semibold text-card-foreground mb-2">
                 Menu não encontrado
               </h2>
-              <p className="text-gray-600 mb-4">
+              <p className="text-muted-foreground mb-4">
                 O menu especificado não foi encontrado ou não existe.
               </p>
               <Button
@@ -377,10 +377,10 @@ export default function AdminMenusPage() {
           <Card className="mt-6">
             <CardContent className="p-0">
               <div className="p-4 border-b">
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2 className="text-lg font-semibold text-card-foreground">
                   Pratos do Menu
                 </h2>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   Estes são os pratos que estão atualmente incluídos neste menu.
                 </p>
               </div>

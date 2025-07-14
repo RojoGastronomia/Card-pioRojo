@@ -183,11 +183,14 @@ export default function OrderHistoryPage() {
 
   const handleConfirmPayment = async (order: Order) => {
     try {
-      const response = await fetch(`/api/orders/${order.id}/confirm-payment`, {
+      const response = await fetch(`/api/orders/${order.id}/payment/confirm`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          paymentIntentId: `boleto-${order.id}-${Date.now()}`
+        }),
         credentials: 'include',
       });
 
@@ -275,17 +278,17 @@ export default function OrderHistoryPage() {
             return (
               <div
                 key={order.id}
-                className="bg-white p-6 rounded-lg shadow h-full flex flex-col"
+                className="bg-card p-6 rounded-lg shadow border border-border h-full flex flex-col"
               >
                   <div className="flex justify-between items-start mb-4">
                     <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold">Pedido #{order.id}</h3>
+                      <h3 className="font-semibold text-card-foreground">Pedido #{order.id}</h3>
                       <Badge variant="secondary" className={status.className}>
                         {status.label}
                       </Badge>
                     </div>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-muted-foreground">
                       Realizado em {new Date(order.createdAt).toLocaleString("pt-BR")}
                     </p>
                   </div>
@@ -293,42 +296,42 @@ export default function OrderHistoryPage() {
 
                 <div className="space-y-4 flex-grow">
                   <div className="flex items-start gap-2">
-                    <svg className="w-5 h-5 text-gray-500 mt-0.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg className="w-5 h-5 text-muted-foreground mt-0.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
                     </svg>
                     <div>
-                      <p className="text-sm text-gray-500">Evento:</p>
-                      <p className="line-clamp-1">{event.title}</p>
+                      <p className="text-sm text-muted-foreground">Evento:</p>
+                      <p className="line-clamp-1 text-card-foreground">{event.title}</p>
                     </div>
                     </div>
 
                   <div className="flex items-start gap-2">
-                    <svg className="w-5 h-5 text-gray-500 mt-0.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg className="w-5 h-5 text-muted-foreground mt-0.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
                       <line x1="16" y1="2" x2="16" y2="6"/>
                       <line x1="8" y1="2" x2="8" y2="6"/>
                       <line x1="3" y1="10" x2="21" y2="10"/>
                     </svg>
                     <div>
-                      <p className="text-sm text-gray-500">Data:</p>
-                      <p>{new Date(order.date).toLocaleString("pt-BR")}</p>
+                      <p className="text-sm text-muted-foreground">Data:</p>
+                      <p className="text-card-foreground">{new Date(order.date).toLocaleString("pt-BR")}</p>
                     </div>
                   </div>
 
-                  <div className="pt-4 border-t mt-auto">
+                  <div className="pt-4 border-t border-border mt-auto">
                     <div className="flex justify-between items-center mb-4">
                         <div>
-                        <p className="text-sm text-gray-500">Tipo de menu</p>
-                        <p className="font-medium line-clamp-1">{order.menuSelection}</p>
+                        <p className="text-sm text-muted-foreground">Tipo de menu</p>
+                        <p className="font-medium text-card-foreground line-clamp-1">{order.menuSelection}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Convidados</p>
-                        <p className="font-medium text-right">{order.guestCount}</p>
+                        <p className="text-sm text-muted-foreground">Convidados</p>
+                        <p className="font-medium text-card-foreground text-right">{order.guestCount}</p>
                       </div>
                     </div>
                     
                     <div className="flex justify-between items-center mb-4">
-                      <p className="font-medium">Total</p>
+                      <p className="font-medium text-card-foreground">Total</p>
                       <p className="font-medium text-emerald-600">
                         {new Intl.NumberFormat("pt-BR", {
                           style: "currency",

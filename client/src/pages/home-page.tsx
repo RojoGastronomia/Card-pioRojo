@@ -49,8 +49,8 @@ export default function HomePage() {
   return (
     <main className="container mx-auto px-4 py-8">        
       <div className="mb-12">
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">{t('events', 'title')}</h1>
-        <p className="text-lg text-gray-600">
+        <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">{t('events', 'title')}</h1>
+        <p className="text-lg text-muted-foreground">
           {t('events', 'subtitle')}
         </p>
       </div>
@@ -71,18 +71,18 @@ export default function HomePage() {
           </p>
           <button 
             onClick={() => navigate("/events")}
-            className="bg-white text-primary px-6 py-3 rounded-button font-medium hover:bg-white/90 transition-colors">
+            className="bg-card text-primary px-6 py-3 rounded-button font-medium hover:bg-card/90 transition-colors">
             {t('events', 'viewAvailableEvents')}
           </button>
         </div>
       </div>
 
-      <h2 className="text-2xl font-bold text-gray-800 mb-8">{t('events', 'availableEvents')}</h2>
+      <h2 className="text-2xl font-bold text-foreground mb-8">{t('events', 'availableEvents')}</h2>
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="bg-white rounded-lg overflow-hidden shadow-sm">
+            <div key={i} className="bg-card rounded-lg overflow-hidden shadow-sm border border-border">
               <Skeleton className="h-48 w-full" />
               <div className="p-5">
                 <Skeleton className="h-6 w-3/4 mb-2" />
@@ -97,10 +97,10 @@ export default function HomePage() {
         </div>
       ) : error ? (
         <div className="text-center py-8">
-          <p className="text-red-500 mb-4">Erro ao carregar eventos. Por favor, tente novamente.</p>
+          <p className="text-destructive mb-4">Erro ao carregar eventos. Por favor, tente novamente.</p>
           <button 
             onClick={() => window.location.reload()}
-            className="bg-primary text-white px-4 py-2 rounded-button hover:bg-primary/90 transition-colors"
+            className="bg-primary text-primary-foreground px-4 py-2 rounded-button hover:bg-primary/90 transition-colors"
           >
             Recarregar Página
           </button>
@@ -118,7 +118,7 @@ export default function HomePage() {
             ))
           ) : (
             <div className="col-span-3 text-center py-8">
-              <p className="text-gray-500">{t('home', 'noEventsAvailable')}</p>
+              <p className="text-muted-foreground">{t('home', 'noEventsAvailable')}</p>
             </div>
           )}
         </div>

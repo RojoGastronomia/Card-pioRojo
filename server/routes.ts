@@ -37,6 +37,7 @@ import {
   type Category, type InsertCategory, categories
 } from "shared/schema";
 import multer from 'multer';
+import { migrateAllLegacyMenuDishes } from './storage';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -597,6 +598,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     try {
       console.log("Received order data:", JSON.stringify(req.body, null, 2));
+      console.log("[DEBUG] Valor recebido de location:", req.body.location);
       
       // Convert date string to Date object if necessary
       const orderData = {
@@ -607,6 +609,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       console.log("Validating order data:", JSON.stringify(orderData, null, 2));
+      console.log("[DEBUG] Valor de location após merge:", orderData.location);
       
       try {
         const validatedData = insertOrderSchema.parse(orderData);
@@ -614,13 +617,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         const order = await storage.createOrder(validatedData);
         
-        // NOVO FLUXO: Enviar email para o comercial após criar o pedido
+        // NOVO FLUXO: Enviar emails após criar o pedido com sucesso
         try {
           // Buscar dados do usuário e evento
           const user = await storage.getUser(order.userId);
           const event = await storage.getEvent(order.eventId);
           
           if (user && event) {
+            // 1. ENVIAR CONFIRMAÇÃO PARA O CLIENTE
+            try {
+              await sendEmail({
+                to: user.email,
+                subject: `Confirmação do Pedido #${order.id}`,
+                template: "order-confirmation",
+                data: {
+                  userName: user.name,
+                  orderId: order.id,
+                  eventName: event.title,
+                  eventDate: new Date(order.date).toLocaleDateString('pt-BR'),
+                  eventTime: new Date(order.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                  location: order.location || 'Local a definir',
+                  guestCount: order.guestCount,
+                  menuSelection: order.menuSelection || 'Menu a definir',
+                  totalAmount: order.totalAmount.toFixed(2),
+                  waiterFee: order.waiterFee.toFixed(2),
+                  orderDate: new Date(order.createdAt).toLocaleDateString('pt-BR')
+                }
+              });
+              console.log(`[NEW FLOW] Email de confirmação enviado para o cliente ${user.email} sobre o pedido #${order.id}`);
+            } catch (clientEmailError) {
+              console.error("[NEW FLOW] Erro ao enviar email de confirmação para o cliente:", clientEmailError);
+              // Não falhar o pedido se o email falhar
+            }
+
+            // 2. ENVIAR NOTIFICAÇÃO PARA O COMERCIAL
+            try {
             // Buscar todos os usuários com papel 'Comercial'
             const commercialUsers = await storage.getUsersByRole('Comercial');
             const commercialEmails = commercialUsers.map(u => u.email).filter(Boolean);
@@ -637,7 +668,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 template: "new-order-notification-commercial",
                 data: {
                   orderId: order.id,
-                  eventName: event.name,
+                  eventName: event.title,
                   eventDate: new Date(order.date).toLocaleDateString('pt-BR'),
                   eventTime: new Date(order.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
                   location: order.location || 'Local a definir',
@@ -655,15 +686,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             
             console.log(`[NEW FLOW] Email enviado para ${emailsToSend.length} comercial(is) sobre o pedido #${order.id}`);
+            } catch (commercialEmailError) {
+              console.error("[NEW FLOW] Erro ao enviar email para comercial:", commercialEmailError);
+              // Não falhar o pedido se o email falhar
+            }
           }
         } catch (emailError) {
-          console.error("[NEW FLOW] Erro ao enviar email para comercial:", emailError);
+          console.error("[NEW FLOW] Erro geral no envio de emails:", emailError);
           // Não falhar o pedido se o email falhar
         }
         
       res.status(201).json(order);
       } catch (validationError: any) {
         console.error("Validation error:", validationError);
+        
+        // ENVIAR EMAIL DE ERRO PARA O COMERCIAL EM CASO DE ERRO DE VALIDAÇÃO
+        try {
+          const commercialUsers = await storage.getUsersByRole('Comercial');
+          const commercialEmails = commercialUsers.map(u => u.email).filter(Boolean);
+          const emailsToSend = commercialEmails.length > 0 ? commercialEmails : [process.env.COMMERCIAL_TEAM_EMAIL || "suporte@rojogastronomia.com"];
+          
+          for (const email of emailsToSend) {
+            await sendEmail({
+              to: email,
+              subject: `Erro na Criação do Pedido - Validação`,
+              template: "boleto-delivery-error",
+              data: {
+                orderId: 'N/A',
+                eventName: 'N/A',
+                eventDate: new Date().toLocaleDateString('pt-BR'),
+                totalAmount: '0,00',
+                attemptDate: new Date().toLocaleDateString('pt-BR'),
+                customerName: req.user?.name || 'Usuário não identificado',
+                customerEmail: req.user?.email || 'Email não identificado',
+                customerPhone: req.user?.phone || 'Telefone não informado',
+                customerWhatsApp: req.user?.phone || 'WhatsApp não informado',
+                errorMessage: `Erro de validação: ${validationError.errors ? JSON.stringify(validationError.errors) : validationError.message}`,
+                errorCode: 'VALIDATION_ERROR',
+                errorTimestamp: new Date().toISOString(),
+                adminPanelUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/admin/orders`
+              }
+            });
+          }
+          console.log(`[NEW FLOW] Email de erro de validação enviado para ${emailsToSend.length} comercial(is)`);
+        } catch (emailError) {
+          console.error("[NEW FLOW] Erro ao enviar email de erro de validação:", emailError);
+        }
+        
         res.status(400).json({ 
           message: "Invalid order data",
           details: validationError.errors || validationError.message
@@ -671,6 +740,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error("Order creation error:", error);
+      
+      // ENVIAR EMAIL DE ERRO PARA O COMERCIAL EM CASO DE ERRO GERAL
+      try {
+        const commercialUsers = await storage.getUsersByRole('Comercial');
+        const commercialEmails = commercialUsers.map(u => u.email).filter(Boolean);
+        const emailsToSend = commercialEmails.length > 0 ? commercialEmails : [process.env.COMMERCIAL_TEAM_EMAIL || "suporte@rojogastronomia.com"];
+        
+        for (const email of emailsToSend) {
+          await sendEmail({
+            to: email,
+            subject: `Erro na Criação do Pedido - Sistema`,
+            template: "boleto-delivery-error",
+            data: {
+              orderId: 'N/A',
+              eventName: 'N/A',
+              eventDate: new Date().toLocaleDateString('pt-BR'),
+              totalAmount: '0,00',
+              attemptDate: new Date().toLocaleDateString('pt-BR'),
+              customerName: req.user?.name || 'Usuário não identificado',
+              customerEmail: req.user?.email || 'Email não identificado',
+              customerPhone: req.user?.phone || 'Telefone não informado',
+              customerWhatsApp: req.user?.phone || 'WhatsApp não informado',
+              errorMessage: error instanceof Error ? error.message : String(error),
+              errorCode: 'SYSTEM_ERROR',
+              errorTimestamp: new Date().toISOString(),
+              adminPanelUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/admin/orders`
+            }
+          });
+        }
+        console.log(`[NEW FLOW] Email de erro do sistema enviado para ${emailsToSend.length} comercial(is)`);
+      } catch (emailError) {
+        console.error("[NEW FLOW] Erro ao enviar email de erro do sistema:", emailError);
+      }
+      
       res.status(500).json({ message: "Error creating order" });
     }
   });
@@ -993,7 +1096,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Payment confirmation endpoint
   app.post("/api/orders/:id/payment/confirm", async (req: Request, res: Response) => {
+    console.log("[Payment Confirm] Request received:", { 
+      orderId: req.params.id, 
+      body: req.body,
+      user: req.user ? { id: req.user.id, email: req.user.email } : 'undefined'
+    });
+
     if (!req.isAuthenticated()) {
+      console.log("[Payment Confirm] Not authenticated");
       return res.status(401).json({ message: "Not authenticated" });
     }
 
@@ -1001,14 +1111,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orderId = parseInt(req.params.id);
       const { paymentIntentId } = z.object({ paymentIntentId: z.string() }).parse(req.body);
       
+      console.log("[Payment Confirm] Parsed data:", { orderId, paymentIntentId });
+      
       const order = await storage.getOrder(orderId);
       
       if (!order) {
+        console.log("[Payment Confirm] Order not found:", orderId);
         return res.status(404).json({ message: "Order not found" });
       }
 
+      console.log("[Payment Confirm] Order found:", { 
+        orderId: order.id, 
+        userId: order.userId, 
+        requestUserId: req.user?.id 
+      });
+
       // Check if user owns the order
-      if (order.userId !== req.user.id) {
+      if (!req.user || order.userId !== req.user.id) {
+        console.log("[Payment Confirm] User not authorized:", { 
+          orderUserId: order.userId, 
+          requestUserId: req.user?.id 
+        });
         return res.status(403).json({ message: "Not authorized" });
       }
 
@@ -1021,7 +1144,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Update order status to confirmed
+      console.log("[Payment Confirm] Updating order status to confirmed");
       const updatedOrder = await storage.updateOrderStatus(orderId, "confirmed");
+      
+      console.log("[Payment Confirm] Order updated successfully:", updatedOrder);
       
       res.json({
         order: updatedOrder,
@@ -2131,7 +2257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: {
           userName: user.name,
           orderId: order.id,
-          eventName: event.name,
+          eventName: event.title,
           eventDate: new Date(order.eventDate).toLocaleDateString('pt-BR'),
           eventTime: new Date(order.eventDate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
           location: order.location,
@@ -2347,4 +2473,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Test endpoint without fileUpload middleware
+
+  // Endpoint temporário para migração definitiva dos pratos dos menus
+  app.post('/api/admin/migrate-menu-dishes', isAdmin, async (req, res) => {
+    try {
+      await migrateAllLegacyMenuDishes();
+      res.json({ ok: true, message: 'Migração concluída!' });
+    } catch (error) {
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  });
+
+  // Endpoint para verificar pratos legados e forçar migração
+  app.get('/api/admin/check-legacy-dishes', isAdmin, async (req, res) => {
+    try {
+      const { db } = require('./db/db');
+      const { dishes, menuDishes } = require('../shared/schema');
+      const { eq, isNotNull } = require('drizzle-orm');
+
+      // Verificar pratos no modelo legado
+      const legacyDishes = await db.select().from(dishes).where(isNotNull(dishes.menuId));
+      
+      // Verificar pratos na tabela de junção
+      const junctionDishes = await db.select().from(menuDishes);
+      
+      // Contar pratos por menu no modelo legado
+      const dishesByMenu = {};
+      legacyDishes.forEach(dish => {
+        if (dish.menuId) {
+          dishesByMenu[dish.menuId] = (dishesByMenu[dish.menuId] || 0) + 1;
+        }
+      });
+
+      // Contar pratos por menu na tabela de junção
+      const junctionByMenu = {};
+      junctionDishes.forEach(item => {
+        junctionByMenu[item.menuId] = (junctionByMenu[item.menuId] || 0) + 1;
+      });
+
+      res.json({
+        legacyDishes: legacyDishes.length,
+        junctionDishes: junctionDishes.length,
+        dishesByMenu,
+        junctionByMenu,
+        legacyDishesList: legacyDishes.map(d => ({ id: d.id, name: d.name, menuId: d.menuId }))
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
 }

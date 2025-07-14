@@ -324,14 +324,8 @@ export default function AdminDishesPage() {
       // Força a busca de dados frescos da API, ignorando o cache
       queryClient.removeQueries({ queryKey: [cacheKey] });
       
-      // Consulta explícita com uma requisição HTTP em vez de usar queryClient.fetchQuery
-      // para garantir que estamos obtendo os dados mais recentes
-      const response = await apiRequest("GET", `/api/dishes/${dish.id}/menus`, undefined, {
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        }
-      }).then(res => res.json());
+      // Consulta simples sem headers extras que causam problemas de CORS
+      const response = await apiRequest("GET", `/api/dishes/${dish.id}/menus`).then(res => res.json());
       
       console.log(`[UI] Encontrados ${response?.length || 0} cardápios vinculados pela API:`, response);
       
@@ -343,12 +337,7 @@ export default function AdminDishesPage() {
         // Fallback para o menuId direto apenas se a API não retornar resultados
         if (dish.menuId) {
           try {
-            const menuResponse = await apiRequest("GET", `/api/menus/${dish.menuId}`, undefined, {
-              headers: {
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache'
-              }
-            }).then(res => res.json());
+            const menuResponse = await apiRequest("GET", `/api/menus/${dish.menuId}`).then(res => res.json());
             
             if (menuResponse) {
               setLinkedMenus([menuResponse]);
@@ -595,7 +584,7 @@ export default function AdminDishesPage() {
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Gerenciar Pratos</h1>
+        <h1 className="text-2xl font-bold text-card-foreground">Gerenciar Pratos</h1>
         <div className="flex gap-2">
           <Button 
             onClick={() => {
@@ -677,15 +666,15 @@ export default function AdminDishesPage() {
               <Table>
                 <TableHeader className="sticky top-0 bg-white z-10">
                   <TableRow>
-                    <TableHead>Nome do Prato</TableHead>
-                    <TableHead>Categoria</TableHead>
-                    <TableHead>Cardápios</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
+                    <TableHead className="bg-muted text-muted-foreground">Nome do Prato</TableHead>
+                    <TableHead className="bg-muted text-muted-foreground">Categoria</TableHead>
+                    <TableHead className="bg-muted text-muted-foreground">Cardápios</TableHead>
+                    <TableHead className="bg-muted text-muted-foreground text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredDishes.map((dish: any) => (
-                    <TableRow key={dish.id} className="hover:bg-gray-50">
+                    <TableRow key={dish.id} className="hover:bg-muted transition-colors">
                       <TableCell className="font-medium">{dish.name}</TableCell>
                       <TableCell>{getCategoryDisplay(dish.category)}</TableCell>
                       <TableCell>
@@ -713,7 +702,7 @@ export default function AdminDishesPage() {
                             size="icon"
                             onClick={() => handleEditDish(dish)}
                           >
-                            <PencilLine className="h-4 w-4 text-gray-500" />
+                            <PencilLine className="h-4 w-4 text-muted-foreground" />
                           </Button>
                           <Button 
                             variant="ghost" 
@@ -735,7 +724,7 @@ export default function AdminDishesPage() {
             </div>
           ) : (
             <div className="text-center py-8">
-              <p className="text-gray-500">Nenhum prato encontrado.</p>
+              <p className="text-muted-foreground">Nenhum prato encontrado.</p>
             </div>
           )}
         </CardContent>
@@ -858,9 +847,9 @@ export default function AdminDishesPage() {
           <Form {...associateForm}>
             <form onSubmit={associateForm.handleSubmit(onAssociateSubmit)} className="space-y-6">
               {selectedDish && (
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <p className="text-sm font-medium">Prato selecionado:</p>
-                  <p className="text-base font-semibold">{selectedDish.name}</p>
+                <div className="bg-muted p-3 rounded-md">
+                  <p className="text-sm font-medium text-card-foreground">Prato selecionado:</p>
+                  <p className="text-base font-semibold text-card-foreground">{selectedDish.name}</p>
                 </div>
               )}
               
@@ -932,21 +921,21 @@ export default function AdminDishesPage() {
           </DialogHeader>
           
           {selectedDish && (
-            <div className="bg-gray-50 p-3 rounded-md mb-4">
-              <p className="text-sm font-medium">Prato selecionado:</p>
-              <p className="text-base font-semibold">{selectedDish.name}</p>
+            <div className="bg-muted p-3 rounded-md mb-4">
+              <p className="text-sm font-medium text-card-foreground">Prato selecionado:</p>
+              <p className="text-base font-semibold text-card-foreground">{selectedDish.name}</p>
             </div>
           )}
           
           {linkedMenus.length > 0 ? (
             <div className="space-y-4">
-              <p className="text-sm font-medium text-gray-500">Este prato está vinculado aos seguintes cardápios:</p>
+              <p className="text-sm font-medium text-muted-foreground">Este prato está vinculado aos seguintes cardápios:</p>
               <div className="max-h-[300px] overflow-auto space-y-2 pr-2">
                 {linkedMenus.map((menu: any) => (
-                  <div key={menu.id} className="p-3 border rounded-md flex justify-between items-center">
+                  <div key={menu.id} className="p-3 border rounded-md flex justify-between items-center bg-muted">
                     <div>
-                      <p className="font-medium">{menu.name}</p>
-                      <p className="text-sm text-gray-500">{formatCurrency(menu.price)} por pessoa</p>
+                      <p className="font-medium text-card-foreground">{menu.name}</p>
+                      <p className="text-sm text-muted-foreground">{formatCurrency(menu.price)} por pessoa</p>
                     </div>
                     <Button 
                       variant="ghost" 
@@ -963,7 +952,7 @@ export default function AdminDishesPage() {
             </div>
           ) : (
             <div className="text-center py-6">
-              <p className="text-gray-500 mb-4">Este prato não está vinculado a nenhum cardápio.</p>
+              <p className="text-muted-foreground mb-4">Este prato não está vinculado a nenhum cardápio.</p>
               <Button 
                 onClick={() => {
                   setShowLinkedMenusDialog(false);

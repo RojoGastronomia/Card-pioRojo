@@ -34,7 +34,7 @@ import {
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { PlusCircle, Pencil, Trash2 } from "lucide-react";
+import { PlusCircle, Pencil, Trash2, RefreshCw, Database } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter"; // Import Link for navigation
 import { z } from "zod";
@@ -46,6 +46,8 @@ export default function MenusCrudPage() {
   const [showDialog, setShowDialog] = useState(false);
   const [selectedMenu, setSelectedMenu] = useState<Menu | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [migrationStatus, setMigrationStatus] = useState<any>(null);
 
   // Fetch Menus
   const { data: menus, isLoading } = useQuery<Menu[]>({
@@ -91,6 +93,35 @@ export default function MenusCrudPage() {
     onError: (error: Error) => toast({ title: "Erro", description: error.message, variant: "destructive" }),
   });
 
+  // Migration Mutation
+  const migrationMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/admin/migrate-menu-dishes");
+    },
+    onSuccess: () => {
+      setIsMigrating(false);
+      toast({ title: "Migração Concluída", description: "Todos os pratos foram migrados com sucesso!" });
+    },
+    onError: (error: Error) => {
+      setIsMigrating(false);
+      toast({ title: "Erro na Migração", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Check Legacy Dishes Mutation
+  const checkLegacyMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("GET", "/api/admin/check-legacy-dishes").then(res => res.json());
+    },
+    onSuccess: (data) => {
+      setMigrationStatus(data);
+      toast({ title: "Status Verificado", description: `Encontrados ${data.legacyDishes} pratos legados e ${data.junctionDishes} na tabela de junção.` });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    },
+  });
+
   // Form setup
   const form = useForm<any>({
     resolver: zodResolver(insertMenuSchema) as any,
@@ -130,15 +161,66 @@ export default function MenusCrudPage() {
     }
   };
 
+  const handleMigration = () => {
+    setIsMigrating(true);
+    migrationMutation.mutate();
+  };
+
+  const handleCheckLegacy = () => {
+    checkLegacyMutation.mutate();
+  };
+
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Gerenciar Menus (Cardápios)</h1>
+        <h1 className="text-2xl font-bold text-card-foreground">Gerenciar Menus (Cardápios)</h1>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleCheckLegacy} className="gap-2">
+            <Database size={16} />
+            Verificar Pratos
+          </Button>
+          <Button variant="outline" onClick={handleMigration} disabled={isMigrating} className="gap-2">
+            <RefreshCw className={`h-4 w-4 ${isMigrating ? 'animate-spin' : ''}`} />
+            {isMigrating ? 'Migrando...' : 'Migrar Pratos'}
+          </Button>
         <Button onClick={() => handleOpenDialog()} className="gap-2">
           <PlusCircle size={16} />
           Novo Menu
         </Button>
       </div>
+      </div>
+
+      {/* Status da Migração */}
+      {migrationStatus && (
+        <Card className="mb-6">
+          <CardContent className="p-4">
+            <h3 className="font-semibold mb-2">Status dos Pratos</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div>
+                <span className="font-medium">Pratos Legados:</span> {migrationStatus.legacyDishes}
+              </div>
+              <div>
+                <span className="font-medium">Pratos na Junção:</span> {migrationStatus.junctionDishes}
+              </div>
+              <div>
+                <span className="font-medium">Menus com Pratos Legados:</span> {Object.keys(migrationStatus.dishesByMenu).length}
+              </div>
+            </div>
+            {migrationStatus.legacyDishesList && migrationStatus.legacyDishesList.length > 0 && (
+              <div className="mt-4">
+                <h4 className="font-medium mb-2">Pratos Legados Encontrados:</h4>
+                <div className="max-h-32 overflow-y-auto">
+                  {migrationStatus.legacyDishesList.map((dish: any) => (
+                    <div key={dish.id} className="text-xs text-gray-600">
+                      • {dish.name} (Menu ID: {dish.menuId})
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="p-0">
@@ -160,7 +242,7 @@ export default function MenusCrudPage() {
               </TableHeader>
               <TableBody>
                 {menus.map((menu) => (
-                  <TableRow key={menu.id} className="hover:bg-gray-50">
+                  <TableRow key={menu.id} className="hover:bg-muted transition-colors">
                     <TableCell className="font-medium">{menu.name}</TableCell>
                     <TableCell>{menu.description}</TableCell>
                     <TableCell>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(menu.price))}</TableCell>
@@ -171,7 +253,7 @@ export default function MenusCrudPage() {
                           <Button variant="outline" size="sm">Gerenciar Pratos</Button>
                         </Link>
                         <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(menu)}>
-                          <Pencil className="h-4 w-4 text-gray-500" />
+                          <Pencil className="h-4 w-4 text-muted-foreground" />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => {
                           if (window.confirm("Tem certeza que deseja excluir este menu? Isso NÃO excluirá os pratos associados.")) {
@@ -188,7 +270,7 @@ export default function MenusCrudPage() {
             </Table>
           ) : (
             <div className="text-center py-8">
-              <p className="text-gray-500">Nenhum menu encontrado.</p>
+              <p className="text-muted-foreground">Nenhum menu encontrado.</p>
             </div>
           )}
         </CardContent>

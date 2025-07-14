@@ -41,7 +41,7 @@ import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Search, PencilLine, Eye, Trash2, Filter, Calendar, Plus, Edit, Save } from "lucide-react";
+import { Search, PencilLine, Eye, EyeOff, Trash2, Filter, Calendar, Plus, Edit, Save } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -212,7 +212,7 @@ export default function AdminEventsPage() {
       location: "",
       eventType: "corporate",
       menuOptions: 2,
-      status: "available",
+      status: "active",
     },
   });
 
@@ -287,10 +287,40 @@ export default function AdminEventsPage() {
     return types[type] || type;
   };
 
+  // Alternar status do evento
+  const toggleEventStatus = async (event: Event) => {
+    const newStatus = event.status === "active" ? "inactive" : "active";
+    const updatedEvent = {
+      title: event.title,
+      description: event.description,
+      titleEn: event.titleEn || "",
+      descriptionEn: event.descriptionEn || "",
+      imageUrl: event.imageUrl,
+      location: event.location || "",
+      eventType: event.eventType,
+      menuOptions: event.menuOptions,
+      status: newStatus,
+    };
+    try {
+      await apiRequest("PUT", `/api/events/${event.id}`, updatedEvent);
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({
+        title: `Evento ${newStatus === "active" ? "disponibilizado" : "indisponibilizado"}`,
+        description: `O evento agora está marcado como ${newStatus === "active" ? "disponível" : "indisponível"}.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro ao atualizar status",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Cadastrar Eventos</h1>
+        <h1 className="text-2xl font-bold text-card-foreground">Cadastrar Eventos</h1>
         <Button 
           onClick={() => {
             setIsEditing(false);
@@ -366,10 +396,10 @@ export default function AdminEventsPage() {
                   <DropdownMenuItem onClick={() => setStatusFilter(null)}>
                     Todos
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setStatusFilter("available")}>
+                  <DropdownMenuItem onClick={() => setStatusFilter("active")}>
                     Disponível
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setStatusFilter("unavailable")}>
+                  <DropdownMenuItem onClick={() => setStatusFilter("inactive")}>
                     Indisponível
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -414,24 +444,28 @@ export default function AdminEventsPage() {
               </TableHeader>
               <TableBody>
                 {filteredEvents.map((event: Event) => (
-                  <TableRow key={event.id} className="hover:bg-gray-50">
+                  <TableRow key={event.id} className="hover:bg-muted transition-colors">
                     <TableCell className="font-medium">{event.title}</TableCell>
                     <TableCell>{getEventTypeDisplay(event.eventType)}</TableCell>
                     <TableCell>{event.location || "N/A"}</TableCell>
                     <TableCell>{event.menuOptions}</TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        event.status === "available" 
+                        event.status === "active" 
                           ? "bg-green-100 text-green-800" 
                           : "bg-red-100 text-red-800"
                       }`}>
-                        {event.status === "available" ? "Disponível" : "Indisponível"}
+                        {event.status === "active" ? "Disponível" : "Indisponível"}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" onClick={() => toggleEventStatus(event)} title={event.status === "active" ? "Marcar como indisponível" : "Marcar como disponível"}>
+                          {event.status === "active" ? (
                           <Eye className="h-4 w-4 text-primary" />
+                          ) : (
+                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                          )}
                         </Button>
                         <Button 
                           variant="ghost" 
@@ -468,9 +502,9 @@ export default function AdminEventsPage() {
       {/* Seção de Gerenciamento de Locais/Salas e Garçom */}
       <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Card Valor do Garçom */}
-        <Card className="col-span-1 bg-gradient-to-br from-amber-100 to-yellow-50 border-amber-200">
+        <Card className="col-span-1 bg-card border border-border">
           <CardContent className="p-6 flex flex-col items-center justify-center h-full">
-            <h2 className="text-lg font-semibold mb-2 text-amber-800 flex items-center gap-2">
+            <h2 className="text-lg font-semibold mb-2 text-card-foreground flex items-center gap-2">
               <span>💁‍♂️</span> Valor do Garçom
             </h2>
             <div className="flex gap-2 items-center mb-2">
@@ -480,21 +514,21 @@ export default function AdminEventsPage() {
                 value={garcomPrice}
                 disabled={!editingGarcom}
                 onChange={e => setGarcomPrice(Number(e.target.value))}
-                className="w-32 text-lg font-bold text-amber-900 bg-amber-50 border-amber-300"
+                className="w-32 text-lg font-bold text-card-foreground bg-muted border-border"
               />
               {editingGarcom ? (
-                <Button onClick={()=>setEditingGarcom(false)} variant="default" className="bg-amber-500 hover:bg-amber-600 text-white"><Save size={18}/> Salvar</Button>
+                <Button onClick={()=>setEditingGarcom(false)} variant="default"><Save size={18}/> Salvar</Button>
               ) : (
-                <Button onClick={()=>setEditingGarcom(true)} variant="outline" className="border-amber-400 text-amber-700"><Edit size={18}/> Editar</Button>
+                <Button onClick={()=>setEditingGarcom(true)} variant="outline"><Edit size={18}/> Editar</Button>
               )}
             </div>
-            <span className="text-xs text-amber-700">Cobrado por garçom a cada 10 convidados</span>
+            <span className="text-xs text-muted-foreground">Cobrado por garçom a cada 10 convidados</span>
           </CardContent>
         </Card>
         {/* Card de adicionar novo local */}
-        <Card className="col-span-2 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+        <Card className="col-span-2 bg-card border border-border">
           <CardContent className="p-6">
-            <h2 className="text-lg font-semibold mb-4 text-blue-800 flex items-center gap-2">
+            <h2 className="text-lg font-semibold mb-4 text-card-foreground flex items-center gap-2">
               <span>🏢</span> Locais e Salas
             </h2>
             <div className="flex gap-2 mb-4">
@@ -502,7 +536,7 @@ export default function AdminEventsPage() {
                 placeholder="Nome do local"
                 value={localInput}
                 onChange={e => setLocalInput(e.target.value)}
-                className="bg-white border-blue-200"
+                className="bg-muted border-border"
               />
               <Button
                 onClick={() => {
@@ -511,8 +545,8 @@ export default function AdminEventsPage() {
                     setLocalInput("");
                   }
                 }}
-                variant="default"
-                className="bg-blue-500 hover:bg-blue-600 text-white"
+                variant=""
+                className=""
                 title="Adicionar Local"
               >
                 <Plus size={18}/>
@@ -520,7 +554,7 @@ export default function AdminEventsPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {locais.map((local, idx) => (
-                <Card key={local.nome} className="border-blue-200 bg-white shadow-sm">
+                <Card key={local.nome} className="border border-border bg-card shadow-sm">
                   <CardContent className="p-4">
                     <div className="flex justify-between items-center mb-2">
                       {editingLocalIdx === idx ? (
@@ -533,14 +567,14 @@ export default function AdminEventsPage() {
                           }}
                           onBlur={()=>setEditingLocalIdx(null)}
                           autoFocus
-                          className="font-bold text-blue-800"
+                          className="font-bold text-card-foreground"
                         />
                       ) : (
-                        <span className="font-bold text-blue-800 text-lg">{local.nome}</span>
+                        <span className="font-bold text-card-foreground text-lg">{local.nome}</span>
                       )}
                       <div className="flex gap-1">
-                        <Button size="icon" variant="ghost" className="hover:bg-blue-100" onClick={()=>setEditingLocalIdx(idx)}><Edit size={16} className="text-blue-600"/></Button>
-                        <Button size="icon" variant="ghost" className="hover:bg-red-100" onClick={()=>{
+                        <Button size="icon" variant="ghost" onClick={()=>setEditingLocalIdx(idx)}><Edit size={16} className="text-primary"/></Button>
+                        <Button size="icon" variant="ghost" onClick={()=>{
                           const novos = locais.filter((_,i)=>i!==idx);
                           setLocais(novos);
                         }}><Trash2 size={16} className="text-red-500"/></Button>
@@ -548,7 +582,7 @@ export default function AdminEventsPage() {
                     </div>
                     <div className="flex flex-wrap gap-2 mb-2">
                       {local.salas.map((sala, sidx) => (
-                        <span key={sala} className="inline-flex items-center px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-medium gap-1">
+                        <span key={sala} className="inline-flex items-center px-2 py-1 rounded-full bg-muted text-card-foreground text-xs font-medium gap-1">
                           {editingSalaIdx && editingSalaIdx.localIdx === idx && editingSalaIdx.salaIdx === sidx ? (
                             <Input
                               value={sala}
@@ -564,15 +598,15 @@ export default function AdminEventsPage() {
                           ) : (
                             <span>{sala}</span>
                           )}
-                          <Button size="icon" variant="ghost" className="hover:bg-blue-200" onClick={()=>setEditingSalaIdx({localIdx:idx,salaIdx:sidx})}><Edit size={14} className="text-blue-600"/></Button>
-                          <Button size="icon" variant="ghost" className="hover:bg-red-200" onClick={()=>{
+                          <Button size="icon" variant="ghost" onClick={()=>setEditingSalaIdx({localIdx:idx,salaIdx:sidx})}><Edit size={14} className="text-primary"/></Button>
+                          <Button size="icon" variant="ghost" onClick={()=>{
                             const novos = [...locais];
                             novos[idx].salas.splice(sidx,1);
                             setLocais(novos);
                           }}><Trash2 size={14} className="text-red-500"/></Button>
                         </span>
                       ))}
-                      <span className="inline-flex items-center px-2 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-400 text-xs font-medium gap-1">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full bg-muted border border-border text-muted-foreground text-xs font-medium gap-1">
                         <Input
                           placeholder="Nova sala"
                           value={newSalaInputs[idx] || ""}
@@ -585,16 +619,16 @@ export default function AdminEventsPage() {
                               setNewSalaInputs(inputs => ({...inputs, [idx]: ""}));
                             }
                           }}
-                          className="w-20 text-xs bg-blue-50 border-blue-200"
+                          className="w-20 text-xs bg-muted border-border"
                         />
-                        <Button size="icon" variant="ghost" className="hover:bg-blue-200" onClick={()=>{
+                        <Button size="icon" variant="ghost" onClick={()=>{
                           if((newSalaInputs[idx] || "").trim()){
                             const novos = [...locais];
                             novos[idx].salas.push((newSalaInputs[idx] || "").trim());
                             setLocais(novos);
                             setNewSalaInputs(inputs => ({...inputs, [idx]: ""}));
                           }
-                        }}><Plus size={14} className="text-blue-500"/></Button>
+                        }}><Plus size={14} className="text-primary"/></Button>
                       </span>
                     </div>
                   </CardContent>

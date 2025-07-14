@@ -121,6 +121,9 @@ export interface IStorage {
   createCategory(categoryData: InsertCategory): Promise<Category>;
   updateCategory(id: number, categoryData: Partial<InsertCategory>): Promise<Category | undefined>;
   deleteCategory(id: number): Promise<void>;
+
+  // Migração em lote: migrar todos os pratos do modelo legado para a tabela de junção
+  migrateAllLegacyMenuDishes(): Promise<void>;
 }
 
 const MemoryStore = createMemoryStore(session);
@@ -139,9 +142,7 @@ export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
     console.log(`[Storage] getUser called with ID: ${id}`);
     try {
-      const result = await db.query.users.findFirst({
-        where: eq(users.id, id)
-      });
+      const [result] = await db.select().from(users).where(eq(users.id, id));
       console.log(`[Storage] getUser query returned: ${result ? result.username : 'undefined'}`);
       return result;
     } catch (error) {
@@ -316,17 +317,26 @@ export class DatabaseStorage implements IStorage {
           
         console.log(`[Storage] getDishesByMenuId found ${legacyResults.length} dishes using legacy approach`);
         
-        // If we found legacy results, migrate them to the junction table
+        // MIGRAÇÃO AUTOMÁTICA: Se encontrar pratos no modelo legado, migrar para a tabela de junção
         if (legacyResults.length > 0) {
           console.log(`[Storage] Migrating ${legacyResults.length} legacy dish associations to junction table`);
           for (const dish of legacyResults) {
             await db.insert(menuDishes)
               .values({ menuId, dishId: dish.id })
               .onConflictDoNothing();
+            // Log de migração
+            console.log(`[Storage] Migrated dish ${dish.id} to menuDishes for menu ${menuId}`);
           }
         }
-        
-        return legacyResults;
+        // Após migrar, buscar novamente usando a tabela de junção
+        const migratedResults = await db
+          .select({ dish: dishes })
+          .from(menuDishes)
+          .innerJoin(dishes, eq(menuDishes.dishId, dishes.id))
+          .where(eq(menuDishes.menuId, menuId))
+          .orderBy(dishes.category, dishes.name);
+        console.log(`[Storage] After migration, found ${migratedResults.length} dishes in junction table`);
+        return migratedResults.map(r => r.dish);
       }
       
       return dishResults.map(r => r.dish);
@@ -655,10 +665,10 @@ export class DatabaseStorage implements IStorage {
   async getPermissions(): Promise<any[]> {
     if (!this._permissions) {
       this._permissions = [
-        { id: 1, name: "read:users", description: "Ler usuários" },
-        { id: 2, name: "write:users", description: "Modificar usuários" },
-        { id: 3, name: "delete:users", description: "Deletar usuários" }
-      ];
+      { id: 1, name: "read:users", description: "Ler usuários" },
+      { id: 2, name: "write:users", description: "Modificar usuários" },
+      { id: 3, name: "delete:users", description: "Deletar usuários" }
+    ];
     }
     return this._permissions;
   }
@@ -679,10 +689,10 @@ export class DatabaseStorage implements IStorage {
   async getRoles(): Promise<any[]> {
     if (!this._roles) {
       this._roles = [
-        { id: 1, name: "admin", permissions: ["read:users", "write:users", "delete:users"] },
-        { id: 2, name: "manager", permissions: ["read:users", "write:users"] },
-        { id: 3, name: "user", permissions: ["read:users"] }
-      ];
+      { id: 1, name: "admin", permissions: ["read:users", "write:users", "delete:users"] },
+      { id: 2, name: "manager", permissions: ["read:users", "write:users"] },
+      { id: 3, name: "user", permissions: ["read:users"] }
+    ];
     }
     return this._roles;
   }
@@ -961,6 +971,24 @@ export class DatabaseStorage implements IStorage {
     this._roles[idx] = { ...this._roles[idx], name, permissions };
     return this._roles[idx];
   }
+
+  // Migração em lote: migrar todos os pratos do modelo legado para a tabela de junção
+  async migrateAllLegacyMenuDishes(): Promise<void> {
+    console.log('[MIGRATION] Iniciando migração de todos os pratos do modelo legado para a tabela de junção menuDishes...');
+    const allMenus = await db.select().from(menus);
+    let totalMigrated = 0;
+    for (const menu of allMenus) {
+      const legacyDishes = await db.select().from(dishes).where(eq(dishes.menuId, menu.id));
+      for (const dish of legacyDishes) {
+        await db.insert(menuDishes)
+          .values({ menuId: menu.id, dishId: dish.id })
+          .onConflictDoNothing();
+        totalMigrated++;
+        console.log(`[MIGRATION] Migrated dish ${dish.id} to menuDishes for menu ${menu.id}`);
+      }
+    }
+    console.log(`[MIGRATION] Migração concluída. Total de vínculos migrados: ${totalMigrated}`);
+  }
 }
 
 // Export an instance of DatabaseStorage
@@ -1011,3 +1039,21 @@ DatabaseStorage.prototype.updateOrderStatus = async function(...args) {
   notifyDataChange();
   return result;
 };
+
+// Migração em lote: migrar todos os pratos do modelo legado para a tabela de junção
+export async function migrateAllLegacyMenuDishes() {
+  console.log('[MIGRATION] Iniciando migração de todos os pratos do modelo legado para a tabela de junção menuDishes...');
+  const allMenus = await db.select().from(menus);
+  let totalMigrated = 0;
+  for (const menu of allMenus) {
+    const legacyDishes = await db.select().from(dishes).where(eq(dishes.menuId, menu.id));
+    for (const dish of legacyDishes) {
+      await db.insert(menuDishes)
+        .values({ menuId: menu.id, dishId: dish.id })
+        .onConflictDoNothing();
+      totalMigrated++;
+      console.log(`[MIGRATION] Migrated dish ${dish.id} to menuDishes for menu ${menu.id}`);
+    }
+  }
+  console.log(`[MIGRATION] Migração concluída. Total de vínculos migrados: ${totalMigrated}`);
+}

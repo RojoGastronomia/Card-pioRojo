@@ -168,6 +168,7 @@ export const orders = pgTable("orders", {
   date: timestamp("date", { withTimezone: true }).notNull(),
   guestCount: integer("guest_count").notNull(),
   menuSelection: text("menu_selection"),
+  location: text("location"),
   totalAmount: real("total_amount").notNull(),
   waiterFee: real("waiter_fee").notNull().default(0),
   additionalInfo: text("additional_info"),
@@ -190,6 +191,7 @@ export const orderSchema = z.object({
   ]),
   guestCount: z.number(),
   menuSelection: z.string().optional(),
+  location: z.string().optional(),
   totalAmount: z.number(),
   waiterFee: z.number().default(0),
   additionalInfo: z.any().optional(),
@@ -217,6 +219,7 @@ export type CartItem = {
   date: string;
   time?: string;
   guestCount: number;
+  location?: string;
   menuSelection: string;
   price: number;
   quantity: number;

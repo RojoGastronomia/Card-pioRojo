@@ -1,81 +1,122 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirmação do Pedido - SiteCard</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      line-height: 1.6;
-      color: #333;
+      background: #f3f4f6;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      color: #111;
+    }
+    .container {
       max-width: 600px;
-      margin: 0 auto;
-      padding: 20px;
+      margin: 32px auto;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px 0 rgba(37,99,235,0.10);
+      overflow: hidden;
     }
     .header {
+      background: linear-gradient(90deg, #2563eb 60%, #22c55e 100%);
+      color: #fff;
+      padding: 32px 24px 20px 24px;
       text-align: center;
-      padding: 20px 0;
-      background-color: #f8f9fa;
-      border-radius: 8px;
-      margin-bottom: 20px;
+    }
+    .header h1 {
+      margin: 0 0 8px 0;
+      font-size: 2rem;
+      letter-spacing: 1px;
+    }
+    .header p {
+      margin: 0;
+      font-size: 1.1rem;
+      opacity: 0.95;
     }
     .content {
-      background-color: #ffffff;
-      padding: 20px;
-      border-radius: 8px;
+      padding: 32px 24px 16px 24px;
+      color: #111;
+    }
+    .details {
+      background: #f8f9fa;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px 0 rgba(37,99,235,0.06);
+      padding: 24px;
+      margin-bottom: 24px;
       border: 1px solid #e9ecef;
     }
-    .footer {
-      text-align: center;
-      margin-top: 20px;
-      font-size: 12px;
-      color: #6c757d;
+    .details h2 {
+      margin-top: 0;
+      color: #1e40af;
+      font-size: 1.2rem;
+    }
+    .details p {
+      margin: 8px 0;
+      font-size: 1rem;
+      color: #111;
     }
     .button {
       display: inline-block;
-      padding: 10px 20px;
-      background-color: #007bff;
-      color: #ffffff;
+      background: linear-gradient(90deg, #22c55e 60%, #2563eb 100%);
+      color: #fff;
+      font-weight: bold;
+      padding: 14px 32px;
+      border-radius: 8px;
       text-decoration: none;
-      border-radius: 5px;
-      margin-top: 20px;
+      font-size: 1.1rem;
+      margin-top: 18px;
+      box-shadow: 0 2px 8px 0 rgba(34,197,94,0.10);
+      transition: background 0.2s;
     }
-    .details {
-      margin: 20px 0;
-      padding: 15px;
-      background-color: #f8f9fa;
-      border-radius: 5px;
+    .button:hover {
+      background: linear-gradient(90deg, #2563eb 60%, #22c55e 100%);
+    }
+    .footer {
+      background: #f8f9fa;
+      color: #495057;
+      text-align: center;
+      padding: 18px 12px;
+      font-size: 0.98rem;
+      border-top: 1px solid #dee2e6;
+    }
+    @media (max-width: 600px) {
+      .container, .content, .header, .footer {
+        padding-left: 6px !important;
+        padding-right: 6px !important;
+      }
+      .details {
+        padding: 12px 8px !important;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>Pedido Recebido!</h1>
-  </div>
-
-  <div class="content">
-    <p>Olá {{userName}},</p>
-    
-    <p>Recebemos seu pedido com sucesso! Nossa equipe comercial entrará em contato em breve para finalizar os detalhes.</p>
-
-    <div class="details">
-      <h3>Detalhes do Pedido #{{orderId}}</h3>
-      <p><strong>Evento:</strong> {{eventName}}</p>
-      <p><strong>Data:</strong> {{eventDate}}</p>
-      <p><strong>Horário:</strong> {{eventTime}}</p>
-      <p><strong>Local:</strong> {{location}}</p>
-      <p><strong>Valor Total:</strong> R$ {{totalAmount}}</p>
+  <div class="container">
+    <div class="header">
+      <h1 style="color:#111;font-size:2rem;font-family:'Segoe UI',Arial,sans-serif;margin:0 0 8px 0;">✅ Pedido Recebido!</h1>
+      <p style="color:#1e293b;font-size:1.1rem;margin:0 0 18px 0;">Seu pedido foi registrado com sucesso.</p>
     </div>
-
-    <p>Você pode acompanhar o status do seu pedido a qualquer momento através da sua conta.</p>
-
-    <p>Em caso de dúvidas, entre em contato conosco pelo email suporte@rojogastronomia.com ou pelo telefone (11) 1234-5678.</p>
-
-    <p>Atenciosamente,<br>Equipe SiteCard</p>
-  </div>
-
-  <div class="footer">
-    <p>Este é um email automático, por favor não responda.</p>
-    <p>© 2024 SiteCard. Todos os direitos reservados.</p>
+    <div class="content">
+      <p>Olá <strong>{{userName}}</strong>,</p>
+      <p>Recebemos seu pedido e nossa equipe comercial entrará em contato em breve para finalizar os detalhes.</p>
+      <div class="details">
+        <h2>📋 Detalhes do Pedido #{{orderId}}</h2>
+        <p><strong>Evento:</strong> {{eventName}}</p>
+        <p><strong>Data:</strong> {{eventDate}}</p>
+        <p><strong>Horário:</strong> {{eventTime}}</p>
+        <p><strong>Local:</strong> <span style="color:#1e40af;font-weight:600">{{location}}</span></p>
+        <p><strong>Valor Total:</strong> <span style="color:#15803d;font-weight:600">R$ {{totalAmount}}</span></p>
+      </div>
+      <a href="{{clientPanelUrl}}" class="button" target="_blank">🔗 Acompanhar Pedido</a>
+      <p style="margin-top:24px;color:#111;">Em caso de dúvidas, entre em contato pelo email <a href="mailto:suporte@rojogastronomia.com" style="color:#1e40af;">suporte@rojogastronomia.com</a> ou pelo telefone <span style="color:#1e40af;">(11) 1234-5678</span>.</p>
+      <p style="margin-top:18px;color:#111;">Atenciosamente,<br><strong>Equipe SiteCard</strong></p>
+    </div>
+    <div class="footer">
+      <p>Este é um email automático, por favor não responda.<br>© 2024 SiteCard. Todos os direitos reservados.</p>
+    </div>
   </div>
 </body>
 </html> 

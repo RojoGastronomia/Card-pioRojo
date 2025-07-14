@@ -90,7 +90,7 @@ export function PaymentModal({
 
   const confirmPaymentMutation = useMutation({
     mutationFn: async ({ orderId, paymentIntentId }: { orderId: number; paymentIntentId: string }) => {
-      const response = await apiRequest("POST", `/api/orders/${orderId}/confirm-payment`, {
+      const response = await apiRequest("POST", `/api/orders/${orderId}/payment/confirm`, {
         paymentIntentId,
       });
       
@@ -268,12 +268,12 @@ export function PaymentModal({
           {/* Seção de boleto */}
           {paymentMethod === "boleto" && (
             <div className="space-y-4">
-              <div className="bg-muted p-4 rounded-lg flex flex-col items-center justify-center text-center space-y-4">
+              <div className="bg-card p-4 rounded-lg flex flex-col items-center justify-center text-center space-y-4">
                 <div className="w-full py-6 flex flex-col items-center">
                   <FileText className="w-16 h-16 text-primary mb-4" />
                   <div className="space-y-2 mb-4">
-                    <p className="text-sm">Clique em "Confirmar Pedido" para prosseguir</p>
-                    <p className="text-sm font-medium">Vencimento: 3 dias úteis após a geração</p>
+                    <p className="text-sm text-card-foreground">Clique em "Confirmar Pedido" para prosseguir</p>
+                    <p className="text-sm font-medium text-card-foreground">Vencimento: 3 dias úteis após a geração</p>
                     <p className="text-xs text-muted-foreground">O boleto será enviado por email</p>
                   </div>
                 </div>

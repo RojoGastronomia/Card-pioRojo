@@ -3,166 +3,220 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Erro no Envio do Boleto</title>
+    <title>Erro no Envio do Boleto - SiteCard</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
+            background: #f3f4f6;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #111;
+        }
+        .container {
             max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
+            margin: 32px auto;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 4px 24px 0 rgba(220,53,69,0.10);
+            overflow: hidden;
         }
         .header {
-            background-color: #dc3545;
-            padding: 20px;
+            background: linear-gradient(90deg, #dc3545 60%, #f87171 100%);
+            color: #fff;
+            padding: 32px 24px 20px 24px;
             text-align: center;
-            border-radius: 8px 8px 0 0;
-            color: white;
+        }
+        .header h1 {
+            margin: 0 0 8px 0;
+            font-size: 2rem;
+            letter-spacing: 1px;
+        }
+        .header p {
+            margin: 0;
+            font-size: 1.1rem;
+            opacity: 0.95;
         }
         .content {
-            background-color: #ffffff;
-            padding: 30px;
-            border: 1px solid #e9ecef;
+            padding: 32px 24px 16px 24px;
+            color: #111;
         }
-        .footer {
-            background-color: #f8f9fa;
-            padding: 20px;
+        .error-box {
+            background: #fee2e2;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px 0 rgba(220,53,69,0.06);
+            padding: 24px;
+            margin-bottom: 24px;
             text-align: center;
-            border-radius: 0 0 8px 8px;
-            font-size: 14px;
-            color: #6c757d;
+            border: 1px solid #fca5a5;
         }
-        .error-info {
-            background-color: #f8d7da;
-            border: 1px solid #f5c6cb;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 20px 0;
+        .error-box h2 {
+            color: #991b1b;
+            margin: 0 0 12px 0;
         }
-        .error-info h3 {
-            color: #721c24;
-            margin-top: 0;
-        }
-        .order-details {
-            background-color: #f8f9fa;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 20px 0;
-        }
-        .order-details h3 {
-            margin-top: 0;
-            color: #495057;
-        }
-        .order-details p {
+        .error-box p {
+            color: #7f1d1d;
             margin: 8px 0;
         }
-        .customer-info {
-            background-color: #e9ecef;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 20px 0;
+        .details {
+            background: #f8f9fa;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px 0 rgba(37,99,235,0.06);
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid #e9ecef;
         }
-        .action-required {
-            background-color: #fff3cd;
-            border: 1px solid #ffc107;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 20px 0;
-        }
-        .action-required h3 {
-            color: #856404;
+        .details h2 {
             margin-top: 0;
+            color: #dc2626;
+            font-size: 1.2rem;
         }
-        .admin-link {
-            display: inline-block;
-            background-color: #dc3545;
-            color: white;
-            padding: 12px 24px;
-            text-decoration: none;
-            border-radius: 6px;
-            margin: 10px 0;
+        .details p {
+            margin: 8px 0;
+            font-size: 1rem;
+            color: #111;
         }
-        .admin-link:hover {
-            background-color: #c82333;
+        .customer-box {
+            background: #dbeafe;
+            border-radius: 12px;
+            padding: 18px 20px;
+            margin-bottom: 24px;
+            border: 1px solid #93c5fd;
+        }
+        .customer-box h3 {
+            margin: 0 0 8px 0;
+            color: #1e40af;
+            font-size: 1.1rem;
+        }
+        .customer-box p {
+            margin: 6px 0;
+            font-size: 0.98rem;
+            color: #1e3a8a;
         }
         .error-details {
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
+            background: #f8fafc;
+            border: 1px solid #fca5a5;
             border-radius: 8px;
             padding: 15px;
             margin: 20px 0;
             font-family: monospace;
             font-size: 12px;
+            color: #7f1d1d;
+        }
+        .error-details h4 {
+            color: #991b1b;
+            margin: 0 0 8px 0;
+        }
+        .action-box {
+            background: #fef3c7;
+            border: 1px solid #fde047;
+            border-radius: 12px;
+            padding: 18px 20px;
+            margin-bottom: 24px;
+        }
+        .action-box h3 {
+            color: #92400e;
+            margin: 0 0 8px 0;
+        }
+        .action-box ol, .action-box ul {
+            color: #78350f;
+            margin: 0 0 10px 18px;
+            padding: 0;
+        }
+        .action-box p {
+            color: #78350f;
+            margin: 8px 0;
+        }
+        .admin-link {
+            display: inline-block;
+            background: linear-gradient(90deg, #dc3545 60%, #f87171 100%);
+            color: #fff;
+            font-weight: bold;
+            padding: 12px 28px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 1.05rem;
+            margin-top: 10px;
+            box-shadow: 0 2px 8px 0 rgba(220,53,69,0.10);
+            transition: background 0.2s;
+        }
+        .admin-link:hover {
+            background: linear-gradient(90deg, #f87171 60%, #dc3545 100%);
+        }
+        .footer {
+            background: #f8f9fa;
+            color: #495057;
+            text-align: center;
+            padding: 18px 12px;
+            font-size: 0.98rem;
+            border-top: 1px solid #dee2e6;
+        }
+        @media (max-width: 600px) {
+            .container, .content, .header, .footer {
+                padding-left: 6px !important;
+                padding-right: 6px !important;
+            }
+            .details, .error-box, .customer-box, .error-details, .action-box {
+                padding: 12px 8px !important;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>❌ Erro no Envio do Boleto</h1>
-        <p>Falha ao enviar boleto para o cliente</p>
-    </div>
-
-    <div class="content">
-        <div class="error-info">
-            <h3>⚠️ Problema Detectado</h3>
-            <p><strong>O boleto para o pedido #{{orderId}} não foi enviado com sucesso para o cliente.</strong></p>
-            <p>É necessário verificar o problema e reenviar o boleto manualmente.</p>
+    <div class="container">
+        <div class="header">
+            <h1>❌ Erro no Envio do Boleto</h1>
+            <p>Falha ao enviar boleto para o cliente</p>
         </div>
-
-        <div class="order-details">
-            <h3>📋 Detalhes do Pedido #{{orderId}}</h3>
-            <p><strong>Evento:</strong> {{eventName}}</p>
-            <p><strong>Data do Evento:</strong> {{eventDate}}</p>
-            <p><strong>Valor Total:</strong> R$ {{totalAmount}}</p>
-            <p><strong>Data da Tentativa de Envio:</strong> {{attemptDate}}</p>
+        <div class="content">
+            <div class="error-box">
+                <h2>⚠️ Problema Detectado</h2>
+                <p><strong>O boleto para o pedido #{{orderId}} não foi enviado com sucesso para o cliente.</strong></p>
+                <p>É necessário verificar o problema e reenviar o boleto manualmente.</p>
+            </div>
+            <div class="details">
+                <h2>📋 Detalhes do Pedido #{{orderId}}</h2>
+                <p><strong>Evento:</strong> {{eventName}}</p>
+                <p><strong>Data do Evento:</strong> {{eventDate}}</p>
+                <p><strong>Local:</strong> <span style="color:#1e40af;font-weight:600">{{location}}</span></p>
+                <p><strong>Valor Total:</strong> <span style="color:#dc2626;font-weight:600">R$ {{totalAmount}}</span></p>
+                <p><strong>Data da Tentativa de Envio:</strong> {{attemptDate}}</p>
+            </div>
+            <div class="customer-box">
+                <h3>👤 Cliente Afetado</h3>
+                <p><strong>Nome:</strong> {{customerName}}</p>
+                <p><strong>Email:</strong> {{customerEmail}}</p>
+                <p><strong>Status do Email:</strong> <span style="color: #dc2626;">❌ Falha no envio</span></p>
+            </div>
+            <div class="error-details">
+                <h4>🔍 Detalhes do Erro:</h4>
+                <p><strong>Erro:</strong> {{errorMessage}}</p>
+                <p><strong>Código:</strong> {{errorCode}}</p>
+                <p><strong>Timestamp:</strong> {{errorTimestamp}}</p>
+            </div>
+            <div class="action-box">
+                <h3>🛠️ Ação Necessária</h3>
+                <ol>
+                    <li>Verifique se o email do cliente está correto</li>
+                    <li>Teste o envio manual do boleto</li>
+                    <li>Se necessário, entre em contato direto com o cliente</li>
+                    <li>Atualize o status do pedido no sistema</li>
+                </ol>
+                <a href="{{adminPanelUrl}}" class="admin-link" target="_blank">🔗 Acessar Painel Administrativo</a>
+            </div>
+            <div class="action-box">
+                <h3>📧 Alternativas de Contato</h3>
+                <ul>
+                    <li><strong>Email direto:</strong> {{customerEmail}}</li>
+                    <li><strong>Telefone:</strong> {{customerPhone}}</li>
+                    <li><strong>WhatsApp:</strong> {{customerWhatsApp}}</li>
+                </ul>
+                <p><strong>Sugestão:</strong> Entre em contato direto com o cliente para confirmar o email correto e reenviar o boleto.</p>
+            </div>
+            <p style="margin-top:18px;color:#111;"><strong>Importante:</strong> Este erro pode afetar o pagamento do pedido. Resolva o problema o mais rápido possível para não impactar o evento.</p>
         </div>
-
-        <div class="customer-info">
-            <h3>👤 Cliente Afetado</h3>
-            <p><strong>Nome:</strong> {{customerName}}</p>
-            <p><strong>Email:</strong> {{customerEmail}}</p>
-            <p><strong>Status do Email:</strong> <span style="color: #dc3545;">❌ Falha no envio</span></p>
+        <div class="footer">
+            <p>Este é um email automático, por favor não responda.<br>© 2024 SiteCard. Todos os direitos reservados.</p>
         </div>
-
-        <div class="error-details">
-            <h4>🔍 Detalhes do Erro:</h4>
-            <p><strong>Erro:</strong> {{errorMessage}}</p>
-            <p><strong>Código:</strong> {{errorCode}}</p>
-            <p><strong>Timestamp:</strong> {{errorTimestamp}}</p>
-        </div>
-
-        <div class="action-required">
-            <h3>🛠️ Ação Necessária</h3>
-            <ol>
-                <li>Verifique se o email do cliente está correto</li>
-                <li>Teste o envio manual do boleto</li>
-                <li>Se necessário, entre em contato direto com o cliente</li>
-                <li>Atualize o status do pedido no sistema</li>
-            </ol>
-            
-            <a href="{{adminPanelUrl}}" class="admin-link" target="_blank">
-                🔗 Acessar Painel Administrativo
-            </a>
-        </div>
-
-        <div class="action-required">
-            <h3>📧 Alternativas de Contato</h3>
-            <ul>
-                <li><strong>Email direto:</strong> {{customerEmail}}</li>
-                <li><strong>Telefone:</strong> {{customerPhone}}</li>
-                <li><strong>WhatsApp:</strong> {{customerWhatsApp}}</li>
-            </ul>
-            <p><strong>Sugestão:</strong> Entre em contato direto com o cliente para confirmar o email correto e reenviar o boleto.</p>
-        </div>
-
-        <p><strong>Importante:</strong> Este erro pode afetar o pagamento do pedido. Resolva o problema o mais rápido possível para não impactar o evento.</p>
-    </div>
-
-    <div class="footer">
-        <p>Este é um email automático do sistema SiteCard.</p>
-        <p>Em caso de dúvidas, entre em contato com o suporte técnico.</p>
-        <p>© 2024 Rojo Gastronomia. Todos os direitos reservados.</p>
     </div>
 </body>
 </html> 

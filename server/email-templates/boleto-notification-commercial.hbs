@@ -3,96 +3,142 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Boleto Anexado ao Pedido</title>
+    <title>Boleto Anexado ao Pedido - SiteCard</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
+            background: #f3f4f6;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #111;
+        }
+        .container {
             max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
+            margin: 32px auto;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 4px 24px 0 rgba(37,99,235,0.10);
+            overflow: hidden;
         }
         .header {
-            background-color: #f8f9fa;
-            padding: 20px;
+            background: linear-gradient(90deg, #2563eb 60%, #22c55e 100%);
+            color: #fff;
+            padding: 32px 24px 20px 24px;
             text-align: center;
-            border-radius: 8px 8px 0 0;
+        }
+        .header h1 {
+            margin: 0 0 8px 0;
+            font-size: 2rem;
+            letter-spacing: 1px;
+        }
+        .header p {
+            margin: 0;
+            font-size: 1.1rem;
+            opacity: 0.95;
         }
         .content {
-            background-color: #ffffff;
-            padding: 30px;
-            border: 1px solid #e9ecef;
+            padding: 32px 24px 16px 24px;
+            color: #111;
         }
-        .footer {
-            background-color: #f8f9fa;
-            padding: 20px;
+        .boleto-box {
+            background: #fef3c7;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px 0 rgba(202,138,4,0.06);
+            padding: 24px;
+            margin-bottom: 24px;
             text-align: center;
-            border-radius: 0 0 8px 8px;
-            font-size: 14px;
-            color: #6c757d;
+            border: 1px solid #fde047;
         }
-        .boleto-info {
-            background-color: #fff3cd;
-            border: 1px solid #ffc107;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 20px 0;
+        .boleto-box h2 {
+            color: #92400e;
+            margin: 0 0 12px 0;
         }
-        .order-details {
-            background-color: #f8f9fa;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 20px 0;
-        }
-        .order-details h3 {
-            margin-top: 0;
-            color: #495057;
-        }
-        .order-details p {
+        .boleto-box p {
+            color: #78350f;
             margin: 8px 0;
         }
-        .customer-info {
-            background-color: #e9ecef;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 20px 0;
+        .details {
+            background: #f8f9fa;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px 0 rgba(37,99,235,0.06);
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid #e9ecef;
+        }
+        .details h2 {
+            margin-top: 0;
+            color: #1e40af;
+            font-size: 1.2rem;
+        }
+        .details p {
+            margin: 8px 0;
+            font-size: 1rem;
+            color: #111;
+        }
+        .customer-box {
+            background: #dbeafe;
+            border-radius: 12px;
+            padding: 18px 20px;
+            margin-bottom: 24px;
+            border: 1px solid #93c5fd;
+        }
+        .customer-box h3 {
+            margin: 0 0 8px 0;
+            color: #1e40af;
+            font-size: 1.1rem;
+        }
+        .customer-box p {
+            margin: 6px 0;
+            font-size: 0.98rem;
+            color: #1e3a8a;
+        }
+        .footer {
+            background: #f8f9fa;
+            color: #495057;
+            text-align: center;
+            padding: 18px 12px;
+            font-size: 0.98rem;
+            border-top: 1px solid #dee2e6;
+        }
+        @media (max-width: 600px) {
+            .container, .content, .header, .footer {
+                padding-left: 6px !important;
+                padding-right: 6px !important;
+            }
+            .details, .boleto-box, .customer-box {
+                padding: 12px 8px !important;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Boleto Anexado ao Pedido</h1>
-        <p>Um boleto foi anexado ao pedido do cliente.</p>
-    </div>
-
-    <div class="content">
-        <div class="boleto-info">
-            <h3>📄 Boleto Bancário</h3>
-            <p>O boleto está anexado a este email e também pode ser acessado pelo painel do sistema.</p>
+    <div class="container">
+        <div class="header">
+            <h1>📎 Boleto Anexado ao Pedido</h1>
+            <p>Um boleto foi anexado ao pedido do cliente.</p>
         </div>
-
-        <div class="order-details">
-            <h3>📋 Detalhes do Pedido</h3>
-            <p><strong>Número do Pedido:</strong> #{{orderId}}</p>
-            <p><strong>Evento:</strong> {{eventName}}</p>
-            <p><strong>Data do Evento:</strong> {{eventDate}}</p>
-            <p><strong>Valor Total:</strong> R$ {{totalAmount}}</p>
+        <div class="content">
+            <div class="boleto-box">
+                <h2>📄 Boleto Bancário</h2>
+                <p>O boleto está anexado a este email e também pode ser acessado pelo painel do sistema.</p>
+            </div>
+            <div class="details">
+                <h2>📋 Detalhes do Pedido #{{orderId}}</h2>
+                <p><strong>Evento:</strong> {{eventName}}</p>
+                <p><strong>Data do Evento:</strong> {{eventDate}}</p>
+                <p><strong>Local:</strong> <span style="color:#1e40af;font-weight:600">{{location}}</span></p>
+                <p><strong>Valor Total:</strong> <span style="color:#15803d;font-weight:600">R$ {{totalAmount}}</span></p>
+            </div>
+            <div class="customer-box">
+                <h3>👤 Dados do Cliente</h3>
+                <p><strong>Nome:</strong> {{userName}}</p>
+                <p><strong>Email:</strong> {{customerEmail}}</p>
+            </div>
+            <p style="color:#111;">Por favor, acompanhe o pagamento deste boleto e atualize o status do pedido no sistema assim que for confirmado.</p>
         </div>
-
-        <div class="customer-info">
-            <h3>👤 Dados do Cliente</h3>
-            <p><strong>Nome:</strong> {{userName}}</p>
-            <p><strong>Email:</strong> {{customerEmail}}</p>
+        <div class="footer">
+            <p>Este é um email automático, por favor não responda.<br>© 2024 SiteCard. Todos os direitos reservados.</p>
         </div>
-
-        <p>Por favor, acompanhe o pagamento deste boleto e atualize o status do pedido no sistema assim que for confirmado.</p>
-    </div>
-
-    <div class="footer">
-        <p>Este é um email automático, não responda a esta mensagem.</p>
-        <p>Em caso de dúvidas, entre em contato com o suporte.</p>
-        <p>© 2024 Rojo Gastronomia. Todos os direitos reservados.</p>
     </div>
 </body>
 </html> 

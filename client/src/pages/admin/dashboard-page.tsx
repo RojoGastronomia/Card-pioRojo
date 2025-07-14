@@ -56,12 +56,12 @@ const renderCustomPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, perc
     <text
       x={x}
       y={y}
-      fill="#222"
+      fill="#fff"
       textAnchor={x > cx ? 'start' : 'end'}
       dominantBaseline="central"
-      fontSize={14}
-      fontWeight={600}
-      style={{ pointerEvents: 'none' }}
+      fontSize={16}
+      fontWeight={700}
+      style={{ pointerEvents: 'none', textShadow: '0 2px 8px #000c' }}
     >
       {`${name} ${(percent * 100).toFixed(0)}%`}
     </text>
@@ -269,7 +269,7 @@ export default function DashboardPage() {
     // Aguardar um pouco para garantir que o estado foi atualizado
     setTimeout(() => {
       // Atualizar dados após limpar filtros
-      if (refreshStats) {
+    if (refreshStats) {
         console.log('[DashboardPage] Chamando refreshStats após limpar filtros...');
         refreshStats().then(() => {
           console.log('[DashboardPage] refreshStats concluído após limpar filtros');
@@ -452,7 +452,7 @@ export default function DashboardPage() {
                 variant="outline" 
                 size="sm" 
                 onClick={toggleAutoRefresh}
-                className={`gap-2 ${autoRefresh ? "bg-green-50 border-green-200" : ""}`}
+                className={`gap-2 ${autoRefresh ? "bg-muted text-card-foreground border-border" : ""}`}
               >
                 {autoRefresh ? <Wifi size={14} /> : <WifiOff size={14} />}
                 {autoRefresh ? "Auto" : "Manual"}
@@ -490,7 +490,7 @@ export default function DashboardPage() {
             <>
               <StatsCard 
                 title={t('admin', 'pendingEvents')} 
-                value={(stats.ordersByStatus?.pending || 0) + (stats.ordersByStatus?.confirmed || 0)} 
+                value={stats.recentOrders ? stats.recentOrders.filter((order: any) => order.status !== 'completed' && order.status !== 'cancelled').length : 0} 
                 icon={<Calendar />} 
                 iconBgColor="bg-primary/10" 
                 iconColor="text-primary" 
@@ -520,17 +520,7 @@ export default function DashboardPage() {
                 iconBgColor="bg-amber-500/10" 
                 iconColor="text-amber-500" 
                 subtitle={t('admin', 'revenueDescription')}
-                showPotential={(() => {
-                  const shouldShow = !dateRange || !dateRange?.start || !dateRange?.end;
-                  console.log('[DashboardPage] showPotential debug:', {
-                    dateRange,
-                    start: dateRange?.start,
-                    end: dateRange?.end,
-                    shouldShow,
-                    confirmedOrdersRevenue: stats.confirmedOrdersRevenue
-                  });
-                  return shouldShow;
-                })()}
+                showPotential={true}
               />
             </>
           ) : (
@@ -677,6 +667,9 @@ export default function DashboardPage() {
                   <>
                     <span className="px-2 py-1 text-xs rounded-full bg-amber-100 text-amber-800 font-medium">
                       {t('admin', 'pending')}: {stats.ordersByStatus.pending}
+                    </span>
+                    <span className="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800 font-medium">
+                      Aguardando Pagamento: {stats.ordersByStatus.aguardandoPagamento}
                     </span>
                     <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 font-medium">
                       {t('admin', 'confirmed')}: {stats.ordersByStatus.confirmed}

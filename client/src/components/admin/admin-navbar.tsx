@@ -5,7 +5,7 @@ export default function AdminNavbar() {
   const [location] = useLocation();
 
   return (
-    <div className="bg-white shadow">
+    <div className="bg-card shadow border-b border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex overflow-x-auto py-3 gap-2">
           <Link href="/admin/dashboard">
@@ -23,6 +23,7 @@ export default function AdminNavbar() {
           <Link href="/admin/dishes">
             <Button variant={location === '/admin/dishes' ? 'default' : 'outline'} className="rounded-full">Pratos</Button>
           </Link>
+
           <Link href="/admin/orders">
             <Button variant={location === '/admin/orders' ? 'default' : 'outline'} className="rounded-full">Pedidos</Button>
           </Link>

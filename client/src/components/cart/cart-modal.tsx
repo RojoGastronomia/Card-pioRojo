@@ -147,6 +147,7 @@ export default function CartModal() {
           date: eventDate.toISOString(),
           guestCount: Number(item.guestCount),
           menuSelection: item.menuSelection || null,
+          location: item.location || null,
           totalAmount: totalAmount + (item.waiterFee || 0),
           waiterFee: item.waiterFee || 0,
           additionalInfo: JSON.stringify(additionalInfo)
@@ -154,6 +155,7 @@ export default function CartModal() {
 
         // Log dos dados sendo enviados
         console.log("📤 Enviando dados do pedido:", JSON.stringify(orderData, null, 2));
+        console.log("🗺️ Valor de item.location:", item.location);
         
         try {
           console.log("🔄 Iniciando requisição POST para /api/orders");
@@ -252,9 +254,9 @@ export default function CartModal() {
         <div className="overflow-y-auto flex-grow p-4 space-y-4">
           {cartItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8">
-              <Package2 className="h-16 w-16 text-gray-300 mb-4" />
-              <h3 className="text-xl font-medium text-gray-700 mb-2">{t('cart', 'empty')}</h3>
-              <p className="text-gray-500 text-center mb-6">
+              <Package2 className="h-16 w-16 text-muted-foreground mb-4" />
+              <h3 className="text-xl font-medium text-muted-foreground mb-2">{t('cart', 'empty')}</h3>
+              <p className="text-muted-foreground text-center mb-6">
                 {t('cart', 'emptyDescription')}
               </p>
               <Button onClick={closeCart}>{t('cart', 'continueShopping')}</Button>
@@ -269,19 +271,19 @@ export default function CartModal() {
         </div>
         
         {cartItems.length > 0 && (
-            <DialogFooter className="border-t border-gray-200 p-4">
+            <DialogFooter className="border-t border-border p-4">
               <div className="w-full space-y-4">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">{t('cart', 'subtotal')}</span>
+                    <span className="text-muted-foreground">{t('cart', 'subtotal')}</span>
               <span className="font-medium">{formatCurrency(subtotal)}</span>
             </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">{t('cart', 'serviceFee')}</span>
+                    <span className="text-muted-foreground">{t('cart', 'serviceFee')}</span>
               <span className="font-medium">{formatCurrency(serviceCharge)}</span>
             </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">{t('cart', 'waiterFee')}</span>
+                    <span className="text-muted-foreground">{t('cart', 'waiterFee')}</span>
                     <span className="font-medium">{formatCurrency(waiterFeeTotal)}</span>
                   </div>
                   <div className="flex justify-between text-base font-semibold">

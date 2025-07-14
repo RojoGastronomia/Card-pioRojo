@@ -49,6 +49,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
   const [loadingDishes, setLoadingDishes] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState("");
+  const [locationTouched, setLocationTouched] = useState(false);
 
   // Lista de locais e salas agrupados
   const locationOptions = [
@@ -204,13 +205,14 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
   };
 
   const handleAddToCart = () => {
+    setLocationTouched(true);
     if (!user) {
       setShowLoginModal(true);
       return;
     }
 
-    if (!selectedMenu || !eventDate || !eventTime) {
-      toast.error("Por favor, selecione um menu, uma data e um horário.");
+    if (!selectedMenu || !eventDate || !eventTime || !selectedLocation) {
+      toast.error("Por favor, selecione um menu, uma data, um horário e um local.");
       return;
     }
 
@@ -268,10 +270,15 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] p-0 gap-0">
-        <DialogHeader className="flex justify-between items-center p-4 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-800">{event.translatedTitle}</h2>
+      <DialogContent className="max-w-3xl max-h-[90vh] p-0 gap-0 !bg-card !text-card-foreground border border-border">
+        <div className="w-full" style={{ backgroundColor: 'hsl(var(--card))' }}>
+          <DialogHeader className="flex flex-col items-center justify-center p-4 border-b border-border">
+            <h2 className="text-2xl font-extrabold" style={{ color: '#fff' }}>{event.translatedTitle}</h2>
+            <DialogDescription className="text-base mt-1" style={{ color: '#fff' }}>
+              {t('common', 'selectCategoryItems')}
+            </DialogDescription>
         </DialogHeader>
+        </div>
 
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
           <div className="flex flex-col md:flex-row gap-6">
@@ -295,23 +302,23 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
               </div>
 
               {selectedMenu ? (
-                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                  <h3 className="text-lg font-semibold text-gray-800">{t('common', 'orderSummary')}</h3>
+                <div className="mt-6 p-4 bg-card rounded-lg">
+                  <h3 className="text-lg font-semibold text-card-foreground">{t('common', 'orderSummary')}</h3>
                   <div className="mt-2">
-                    <p className="text-gray-700">{selectedMenu.name}</p>
-                    <p className="text-sm text-gray-500 mt-1">{selectedMenu.description}</p>
+                    <p className="text-card-foreground">{selectedMenu.name}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{selectedMenu.description}</p>
                     <p className="text-primary font-medium mt-2">
                       {formatCurrency(Number(selectedMenu.price))} {t('common', 'pricePerPerson')}
                     </p>
                     <div className="mt-4 space-y-2">
-                      <h4 className="font-medium text-gray-700">{t('common', 'selectedMenu')}:</h4>
+                      <h4 className="font-medium text-card-foreground">{t('common', 'selectedMenu')}:</h4>
                       {Object.entries(menuSelections).map(([category, items]) => (
                         items.length > 0 && (
                           <div key={category} className="ml-4">
-                            <p className="text-sm font-medium text-gray-600">
+                            <p className="text-sm font-medium text-muted-foreground">
                               {category}:
                             </p>
-                            <ul className="list-disc list-inside text-sm text-gray-500">
+                            <ul className="list-disc list-inside text-sm text-muted-foreground">
                               {items.map((item: string) => (
                                 <li key={item}>{item}</li>
                               ))}
@@ -343,8 +350,8 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-4xl max-h-[90vh] p-0 gap-0">
-                  <DialogHeader className="flex justify-between items-center p-4 border-b border-gray-200 sticky top-0 bg-white z-10">
-                    <DialogTitle className="text-xl font-semibold text-gray-800">
+                  <DialogHeader className="flex justify-between items-center p-4 border-b border-border sticky top-0 bg-card z-10">
+                    <DialogTitle className="text-xl font-semibold text-card-foreground">
                       {t('common', 'availableMenuOptions')}
                     </DialogTitle>
                     <DialogDescription className="sr-only">
@@ -359,17 +366,17 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
                       ) : menus && menus.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           {menus.map((menu) => (
-                            <div key={menu.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden card-shadow">
+                            <div key={menu.id} className="bg-card border border-border rounded-lg overflow-hidden card-shadow">
                           <div className="p-5">
                             <div className="flex justify-between items-center mb-4">
-                                  <h3 className="text-lg font-semibold text-gray-800">{menu.name}</h3>
+                                  <h3 className="text-lg font-semibold text-card-foreground">{menu.name}</h3>
                                   <span className="inline-block bg-emerald-600 text-white text-xs font-medium px-3 py-1 rounded-full">
                                     {formatCurrency(Number(menu.price))}
                               </span>
                             </div>
                             <div className="space-y-3 mb-4">
                               <div className="flex items-start">
-                                    <div className="text-gray-600 text-sm">{menu.description}</div>
+                                    <div className="text-muted-foreground text-sm">{menu.description}</div>
                               </div>
                             </div>
                             <Button 
@@ -389,7 +396,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
                                           ))}
                                         </div>
                       ) : (
-                        <p className="text-center py-8 text-gray-600">{t('common', 'noMenuOptions')}</p>
+                        <p className="text-center py-8 text-muted-foreground">{t('common', 'noMenuOptions')}</p>
                       )}
                                   </div>
                                 </DialogContent>
@@ -399,24 +406,31 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
 
             <div className="md:w-1/2 space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-foreground mb-1">
                   {t('common', 'locationLabel')}
                 </label>
+                <div className="mt-4">
+                  <label className="block text-sm font-medium mb-1 text-card-foreground">Local do Evento <span className="text-red-500">*</span></label>
                 <select
-                  className="w-full border rounded px-3 py-2 text-gray-700"
-                  value={selectedLocation}
-                  onChange={e => setSelectedLocation(e.target.value)}
-                  required
-                >
-                  <option value="">{t('common', 'selectLocation')}</option>
-                  {locationOptions.map(group => (
-                    <optgroup key={group.label} label={group.label}>
-                      {group.options.map(option => (
-                        <option key={option} value={`${group.label} - ${option}`}>{option}</option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
+  className={`w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-primary bg-card text-card-foreground ${locationTouched && !selectedLocation ? 'border-red-500 ring-2 ring-red-400' : 'border-border'}`}
+  value={selectedLocation}
+  onChange={e => setSelectedLocation(e.target.value)}
+  onBlur={() => setLocationTouched(true)}
+  required
+>
+  <option value="">Selecione o local...</option>
+  {locationOptions.map(group => (
+    <optgroup key={group.label} label={group.label}>
+      {group.options.map(option => (
+        <option key={option} value={option}>{option}</option>
+      ))}
+    </optgroup>
+  ))}
+</select>
+                  {locationTouched && !selectedLocation && (
+                    <p className="text-red-500 text-xs mt-1">O local do evento é obrigatório.</p>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -458,32 +472,32 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
               </div>
 
               {selectedMenu && (
-                <div className="mt-6 bg-gray-50 p-4 rounded-lg">
-                  <h3 className="text-lg font-semibold text-gray-800">{t('common', 'orderSummary')}</h3>
+                <div className="mt-6 bg-card p-4 rounded-lg">
+                  <h3 className="text-lg font-semibold text-card-foreground">{t('common', 'orderSummary')}</h3>
                   <div className="mt-2 space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">{t('common', 'selectedMenu')}:</span>
-                      <span className="font-medium">{selectedMenu.name}</span>
+                      <span className="text-muted-foreground">{t('common', 'selectedMenu')}:</span>
+                      <span className="font-medium text-card-foreground">{selectedMenu.name}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">{t('common', 'pricePerPerson')}:</span>
-                      <span className="font-medium">{formatCurrency(Number(selectedMenu.price))}</span>
+                      <span className="text-muted-foreground">{t('common', 'pricePerPerson')}:</span>
+                      <span className="font-medium text-card-foreground">{formatCurrency(Number(selectedMenu.price))}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">{t('common', 'eventDateLabel')}:</span>
-                      <span className="font-medium">{eventDate}</span>
+                      <span className="text-muted-foreground">{t('common', 'eventDateLabel')}:</span>
+                      <span className="font-medium text-card-foreground">{eventDate}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">{t('common', 'eventTimeLabel')}:</span>
-                      <span className="font-medium">{eventTime}</span>
+                      <span className="text-muted-foreground">{t('common', 'eventTimeLabel')}:</span>
+                      <span className="font-medium text-card-foreground">{eventTime}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">{t('common', 'guestCountLabel')}:</span>
-                      <span className="font-medium">{guestCount}</span>
+                      <span className="text-muted-foreground">{t('common', 'guestCountLabel')}:</span>
+                      <span className="font-medium text-card-foreground">{guestCount}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">{t('common', 'locationLabel')}:</span>
-                      <span className="font-medium">{selectedLocation}</span>
+                      <span className="text-muted-foreground">{t('common', 'locationLabel')}:</span>
+                      <span className="font-medium text-card-foreground">{selectedLocation}</span>
                     </div>
                     <div className="text-xs text-amber-700 bg-amber-100 rounded p-2 mt-2">
                       {t('common', 'waiterNote')}
@@ -493,8 +507,8 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
                       const garcomTotal = garcons * 260;
                       return (
                         <div className="flex justify-between">
-                          <span className="text-gray-600">{t('common', 'waiterFee')}:</span>
-                          <span className="font-medium">
+                          <span className="text-muted-foreground">{t('common', 'waiterFee')}:</span>
+                          <span className="font-medium text-card-foreground">
                             {formatCurrency(garcomTotal)}
                             <span className="text-xs text-gray-500">
                               {t('common', 'waitersCount').replace('{{count}}', String(garcons))}
@@ -560,14 +574,14 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
                     <h3 className="text-lg font-semibold mb-4 flex items-center justify-between">
                       <div>
                         {category}
-                        <span className="text-sm font-normal text-gray-500 ml-2">
+                        <span className="text-sm font-normal text-muted-foreground ml-2">
                           ({t('common', 'selectItems')} {categoryLimits[category] || 1})
                         </span>
                       </div>
                       <div className={`px-3 py-1 rounded-full text-sm font-medium ${
                         menuSelections[category]?.length === categoryLimits[category]
                           ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-600'
+                          : 'bg-muted text-muted-foreground'
                       }`}>
                         {menuSelections[category]?.length || 0} / {categoryLimits[category] || 1}
                       </div>
@@ -581,9 +595,9 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
                         return (
                           <label 
                             key={dish.id} 
-                            className={`relative border rounded-lg overflow-hidden block cursor-pointer hover:border-primary transition-colors group ${
+                            className={`relative border border-border rounded-lg overflow-hidden block cursor-pointer hover:border-primary transition-colors group ${
                               isDisabled ? 'opacity-50 cursor-not-allowed' : 'has-[:checked]:border-primary has-[:checked]:ring-2 has-[:checked]:ring-primary/50'
-                            } h-full flex flex-col`}
+                            } h-full flex flex-col bg-card`}
                           >
                             <input 
                               type="checkbox" 
@@ -594,7 +608,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
                               disabled={isDisabled}
                             />
                             {dish.imageUrl ? (
-                              <div className="h-40 w-full overflow-hidden">
+                              <div className="h-40 w-full overflow-hidden bg-muted">
                                 <img 
                                   src={dish.imageUrl} 
                                   alt={dish.name} 
@@ -602,17 +616,17 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
                                 />
                               </div>
                             ) : (
-                              <div className="h-24 w-full bg-gray-100 flex items-center justify-center">
-                                <span className="text-gray-400">{t('common', 'noImage')}</span>
+                              <div className="h-24 w-full bg-muted flex items-center justify-center">
+                                <span className="text-muted-foreground">{t('common', 'noImage')}</span>
                               </div>
                             )}
                             <div className="p-4 flex-grow flex flex-col">
                               <div className="flex justify-between items-center mb-2">
-                                <h4 className="font-medium text-gray-800 text-lg">{dish.name}</h4>
+                                <h4 className="font-medium text-card-foreground text-lg">{dish.name}</h4>
                                 <div className={`w-7 h-7 border-2 rounded-full flex items-center justify-center transition-all duration-200 ${
                                   menuSelections[category]?.includes(dish.name)
                                     ? "bg-primary border-primary shadow-md"
-                                    : "border-gray-300"
+                                    : "border-border bg-background"
                                 }`}>
                                   {menuSelections[category]?.includes(dish.name) && (
                                     <svg 
@@ -629,7 +643,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
                                 </div>
                               </div>
                               <div className="flex flex-col">
-                                <p className="text-sm text-gray-600 flex-grow mb-2">{dish.description}</p>
+                                <p className="text-sm text-muted-foreground flex-grow mb-2">{dish.description}</p>
                               </div>
                             </div>
                           </label>
@@ -641,7 +655,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
               )}
             </div>
             
-            <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3 mt-auto">
+            <div className="p-4 border-t border-border bg-card flex justify-end gap-3 mt-auto">
               <Button 
                 variant="outline" 
                 onClick={() => {
@@ -652,7 +666,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
                 {t('common', 'cancel')}
               </Button>
               <Button 
-                className="bg-primary text-white"
+                className="bg-primary text-primary-foreground"
                 onClick={() => {
                   const selectionCounts = Object.entries(menuSelections).map(([category, items]) => ({
                     category,
@@ -691,32 +705,32 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
           onOpenChange={setShowLoginModal}
         >
           <DialogContent className="max-w-md p-0 gap-0 flex flex-col">
-            <DialogHeader className="p-4 border-b border-gray-200 bg-white">
-              <DialogTitle className="text-xl font-semibold text-gray-800">
+            <DialogHeader className="p-4 border-b border-border bg-card">
+              <DialogTitle className="text-xl font-semibold text-card-foreground">
                 {t('common', 'loginRequired')}
               </DialogTitle>
-              <DialogDescription className="sr-only">
+              {/* <DialogDescription className="sr-only">
                 {t('common', 'loginRequiredMessage')}
-              </DialogDescription>
+              </DialogDescription> */}
             </DialogHeader>
             
             <div className="p-6">
-              <div className="flex items-center justify-center mb-4 text-blue-600">
+              <div className="flex items-center justify-center mb-4 text-primary">
                 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3" />
                 </svg>
               </div>
               
-              <p className="text-center text-gray-800 mb-2 font-medium">
+              <p className="login-required-message text-center font-semibold mb-2">
                 {t('common', 'loginRequiredMessage')}
               </p>
               
-              <p className="text-center text-gray-600 text-sm mb-6">
+              <p className="text-center text-sm font-medium mb-6" style={{color:'#fff',opacity:1,textShadow:'0 2px 8px #000c',WebkitTextStroke:'0.2px #000',fontWeight:500,filter:'none',mixBlendMode:'normal',zIndex:2,position:'relative',pointerEvents:'auto',MozOsxFontSmoothing:'auto',WebkitFontSmoothing:'auto',MozOpacity:1,msFilter:'none',OFilter:'none',KhtmlOpacity:1,background:'none',boxShadow:'none',textRendering:'optimizeLegibility',MozTextShadow:'0 2px 8px #000c',WebkitTextShadow:'0 2px 8px #000c',important:true}}>
                 {t('common', 'loginRequiredSubMessage')}
               </p>
             </div>
             
-            <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-between gap-3">
+            <div className="p-4 border-t border-border bg-card flex justify-between gap-3">
               <Button 
                 variant="outline" 
                 onClick={() => setShowLoginModal(false)}

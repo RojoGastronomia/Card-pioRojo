@@ -111,7 +111,7 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col bg-background">
       <div className="flex-1 flex flex-col md:flex-row">
         {/* Left column: Hero section */}
         <div className="md:w-1/2 bg-primary p-10 md:p-16 flex flex-col justify-center relative overflow-hidden">
@@ -162,24 +162,24 @@ export default function AuthPage() {
         </div>
 
         {/* Right column: Form */}
-        <div className="md:w-1/2 p-8 md:p-16 flex items-center justify-center">
-          <Card className="w-full max-w-md">
-            <CardHeader className="space-y-1">
+        <div className="md:w-1/2 p-8 md:p-16 flex items-center justify-center bg-background">
+          <Card className="w-full max-w-md bg-card text-card-foreground">
+            <CardHeader className="space-y-1 bg-card text-card-foreground">
               <div className="flex justify-between items-center">
-                <CardTitle className="text-2xl font-bold">
+                <CardTitle className="text-2xl font-bold text-card-foreground">
                   {activeTab === "login" ? t('auth', 'loginTitle') : t('auth', 'registerTitle')}
                 </CardTitle>
                 <Link href="/" className="text-primary hover:text-primary/80 text-sm font-medium">
                   {t('auth', 'back')}
                 </Link>
               </div>
-              <CardDescription>
+              <CardDescription className="text-card-foreground/80">
                 {activeTab === "login" 
                   ? t('auth', 'loginSubtitle')
                   : t('auth', 'registerSubtitle')}
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="bg-card text-card-foreground">
               {error && (
                 <Alert variant="destructive" className="mb-4">
                   <AlertCircle className="h-4 w-4" />

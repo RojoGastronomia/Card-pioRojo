@@ -2,6 +2,10 @@ import nodemailer from 'nodemailer';
 import Handlebars from 'handlebars';
 import fs from 'fs/promises';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 interface EmailData {
   to: string;
@@ -24,7 +28,7 @@ function validateSmtpConfig() {
 function createTransporter() {
   validateSmtpConfig();
   
-  return nodemailer.createTransporter({
+  return nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT || '587'),
     secure: process.env.SMTP_SECURE === 'true',
@@ -44,7 +48,7 @@ function createTransporter() {
 // Função para carregar o template
 async function loadTemplate(templateName: string): Promise<string> {
   try {
-    const templatePath = path.join(process.cwd(), 'server', 'email-templates', `${templateName}.hbs`);
+    const templatePath = path.join(__dirname, 'email-templates', `${templateName}.hbs`);
     console.log(`[EMAIL] Carregando template: ${templatePath}`);
     
     const templateContent = await fs.readFile(templatePath, 'utf-8');

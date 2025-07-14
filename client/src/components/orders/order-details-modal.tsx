@@ -26,6 +26,9 @@ export function OrderDetailsModal({
   open,
   onOpenChange,
 }: OrderDetailsModalProps) {
+  // Debug: Log para verificar se o campo location está presente
+  console.log("🔍 OrderDetailsModal - order.location:", order?.location);
+  console.log("🔍 OrderDetailsModal - order completo:", order);
   const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
@@ -150,10 +153,10 @@ export function OrderDetailsModal({
                 {statusInfo.label}
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground">{statusInfo.description}</p>
+            <p className="text-sm text-card-foreground">{statusInfo.description}</p>
             
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">Data do pedido</span>
+              <span className="text-sm text-card-foreground">Data do pedido</span>
               <span className="text-sm">{formatDate(order.createdAt)}</span>
             </div>
 
@@ -161,17 +164,17 @@ export function OrderDetailsModal({
               <h4 className="font-medium mb-3">Detalhes do Evento</h4>
               <div className="space-y-2">
                 <div className="flex items-center text-sm">
-                  <Calendar className="h-4 w-4 mr-2 text-gray-500 shrink-0" />
+                  <Calendar className="h-4 w-4 mr-2 text-card-foreground shrink-0" />
                   <span className="break-words">{event?.title || `Evento #${order.eventId}`}</span>
                 </div>
-                {event?.location && (
                   <div className="flex items-center text-sm">
-                    <MapPin className="h-4 w-4 mr-2 text-gray-500 shrink-0" />
-                    <span className="break-words">{event.location}</span>
+                  <MapPin className="h-4 w-4 mr-2 text-card-foreground shrink-0" />
+                  <span className="break-words">
+                    {order.location ? order.location : "Local não especificado"}
+                  </span>
                   </div>
-                )}
                 <div className="flex items-center text-sm">
-                  <Users className="h-4 w-4 mr-2 text-gray-500 shrink-0" />
+                  <Users className="h-4 w-4 mr-2 text-card-foreground shrink-0" />
                   <span>{order.guestCount} convidados</span>
                 </div>
               </div>
@@ -184,7 +187,7 @@ export function OrderDetailsModal({
                 <div className="mt-3">
                   <h5 className="text-sm font-medium mb-2 text-primary">Itens Selecionados</h5>
                   {typeof order.additionalInfo === 'string' && order.additionalInfo.startsWith('{') ? (
-                    <div className="text-sm text-gray-700 bg-gray-50 p-3 rounded-md">
+                    <div className="text-sm text-card-foreground bg-card p-3 rounded-md">
                       {(() => {
                         try {
                           // Tentar analisar o JSON
@@ -196,7 +199,7 @@ export function OrderDetailsModal({
                               <div className="space-y-3">
                                 {Object.entries(additionalData.selectedItems).map(([category, items]: [string, any], index) => (
                                   <div key={index} className="pb-2">
-                                    <strong className="text-gray-900 uppercase text-xs tracking-wider border-b border-gray-200 pb-1 block mb-2">
+                                    <strong className="text-foreground uppercase text-xs tracking-wider border-b border-border pb-1 block mb-2">
                                       {category}
                                     </strong>
                                     <ul className="list-disc ml-4 space-y-1">
@@ -214,12 +217,12 @@ export function OrderDetailsModal({
                           
                           // Para outros tipos de objetos, exibir como lista de propriedades
                           return (
-                            <div className="bg-gray-50 p-3 rounded-md">
+                            <div className="bg-card p-3 rounded-md">
                               <ul className="space-y-2">
                                 {Object.entries(additionalData).map(([key, value], index) => (
                                   <li key={index} className="flex flex-wrap">
-                                    <strong className="mr-2 text-gray-700">{key}:</strong> 
-                                    <span className="text-gray-600 break-all">{
+                                    <strong className="mr-2 text-foreground">{key}:</strong> 
+                                    <span className="text-card-foreground break-all">{
                                       typeof value === 'object' 
                                         ? JSON.stringify(value) 
                                         : String(value)
@@ -232,12 +235,12 @@ export function OrderDetailsModal({
                         } catch (e) {
                           // Se não for um JSON válido, exibir como texto
                           console.error('Erro ao parsear JSON:', e);
-                          return <p className="italic text-gray-500">{order.additionalInfo}</p>;
+                          return <p className="italic text-card-foreground">{order.additionalInfo}</p>;
                         }
                       })()}
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">{String(order.additionalInfo)}</p>
+                    <p className="text-sm text-card-foreground bg-card p-3 rounded-md">{String(order.additionalInfo)}</p>
                   )}
                 </div>
               )}
@@ -278,11 +281,20 @@ export function OrderDetailsModal({
             )}
 
             <div className="border-t pt-4">
-              <div className="flex justify-between items-center">
-                <span className="font-medium">Total</span>
-                <span className="font-medium text-primary">
-                  {formatCurrency(order.totalAmount)}
-                </span>
+              <h4 className="font-medium mb-3">Resumo de Valores</h4>
+              <div className="space-y-2 bg-muted p-4 rounded-lg">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="font-medium">{formatCurrency(order.totalAmount - (order.waiterFee || 0))}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Taxa de garçom</span>
+                  <span className="font-medium">{formatCurrency(order.waiterFee || 0)}</span>
+                </div>
+                <div className="flex justify-between text-base font-semibold">
+                  <span>Total</span>
+                  <span className="text-primary">{formatCurrency(order.totalAmount)}</span>
+                </div>
               </div>
             </div>
           </div>

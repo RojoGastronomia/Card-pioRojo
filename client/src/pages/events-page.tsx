@@ -54,8 +54,8 @@ export default function EventsPage() {
 
   return (
     <main className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-800 mb-2">{t('events', 'title')}</h1>
-      <p className="text-gray-600 text-lg mb-8">{t('events', 'subtitle')}</p>
+      <h1 className="text-2xl font-bold text-foreground mb-2">{t('events', 'title')}</h1>
+      <p className="text-muted-foreground text-lg mb-8">{t('events', 'subtitle')}</p>
 
       {/* Banner igual ao da HomePage */}
       <div className="relative w-full h-[400px] rounded-lg overflow-hidden mb-12">
@@ -73,7 +73,7 @@ export default function EventsPage() {
             {t('events', 'bannerSubtitle')}
           </p>
           <button 
-            className="bg-white text-primary px-6 py-3 rounded-button font-medium hover:bg-white/90 transition-colors cursor-default"
+            className="bg-card text-primary px-6 py-3 rounded-button font-medium hover:bg-card/90 transition-colors cursor-default"
             disabled
           >
             {t('events', 'viewAvailableEvents')}
@@ -81,13 +81,13 @@ export default function EventsPage() {
         </div>
       </div>
 
-      <h2 className="text-2xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
+      <h2 className="text-2xl font-semibold text-foreground mb-6 flex items-center gap-2">
         <span role="img" aria-label="calendar">📅</span> {t('events', 'availableEvents')}
       </h2>
 
       <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
         <div className="relative w-full md:w-auto flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
           <Input
             type="text"
             placeholder={t('events', 'searchPlaceholder')}
@@ -123,7 +123,7 @@ export default function EventsPage() {
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="bg-white rounded-lg overflow-hidden shadow-sm">
+            <div key={i} className="bg-card rounded-lg overflow-hidden shadow-sm border border-border">
               <Skeleton className="h-48 w-full" />
               <div className="p-5">
                 <Skeleton className="h-6 w-3/4 mb-2" />
@@ -148,8 +148,8 @@ export default function EventsPage() {
         </div>
       ) : (
         <div className="text-center py-12">
-          <h3 className="text-xl font-medium text-gray-700">{t('events', 'noEventsFound')}</h3>
-          <p className="text-gray-500 mt-2">
+          <h3 className="text-xl font-medium text-muted-foreground">{t('events', 'noEventsFound')}</h3>
+          <p className="text-muted-foreground mt-2">
             {t('events', 'adjustFilters')}
           </p>
         </div>

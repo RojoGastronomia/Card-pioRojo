@@ -328,7 +328,7 @@ export default function AdminUsersPage() {
   return (
     <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">{t('users', 'title')}</h1>
+          <h1 className="text-2xl font-bold text-card-foreground">{t('users', 'title')}</h1>
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
               <Button className="gap-2">
@@ -456,7 +456,7 @@ export default function AdminUsersPage() {
         </div>
 
         {/* User Type Tabs */}
-        <div className="bg-gray-100 p-1 rounded-full inline-flex w-fit mb-6">
+        <div className="bg-muted p-1 rounded-full inline-flex w-fit mb-6 border border-border">
           <Button 
             variant={activeTab === "clients" ? "default" : "ghost"} 
             className="rounded-full"
@@ -481,7 +481,7 @@ export default function AdminUsersPage() {
         </div>
 
         {/* Filter Controls */}
-        <Card className="mb-6">
+        <Card className="mb-6 bg-card border border-border">
           <CardContent className="p-4">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
               <div className="flex space-x-4">
@@ -521,7 +521,7 @@ export default function AdminUsersPage() {
         </Card>
 
         {/* Users Table */}
-        <Card>
+        <Card className="bg-card border border-border">
           <CardContent className="p-0">
             {isLoading ? (
             <div className="p-6 space-y-4">
@@ -543,48 +543,48 @@ export default function AdminUsersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                  <TableHead className="w-[250px]">{t('users', 'name')}</TableHead>
-                    <TableHead>{t('users', 'userType')}</TableHead>
-                    <TableHead>{t('users', 'contacts')}</TableHead>
-                    <TableHead>{t('users', 'status')}</TableHead>
-                    <TableHead className="text-right">{t('users', 'actions')}</TableHead>
+                  <TableHead className="w-[250px] text-card-foreground">{t('users', 'name')}</TableHead>
+                    <TableHead className="text-card-foreground">{t('users', 'userType')}</TableHead>
+                    <TableHead className="text-card-foreground">{t('users', 'contacts')}</TableHead>
+                    <TableHead className="text-card-foreground">{t('users', 'status')}</TableHead>
+                    <TableHead className="text-right text-card-foreground">{t('users', 'actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                 {filteredUsers.map((user) => {
                   return (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">
-                        <div className="font-semibold">{user.name}</div>
+                    <TableRow key={user.id} className="border-border">
+                      <TableCell className="font-medium text-card-foreground">
+                        <div className="font-semibold text-card-foreground">{user.name}</div>
                         <div className="text-sm text-muted-foreground">{user.username}</div>
                       </TableCell>
                       <TableCell>
                         {user.role === 'Administrador' ? (
                           <span className="inline-flex items-center gap-1">
-                            <Badge variant="secondary" className="bg-red-100 text-red-800 border-red-200">
+                            <Badge variant="secondary" className="text-red-500">
                               {t('users', 'userTypeAdmin')}
                             </Badge>
                           </span>
                         ) : user.role === 'Comercial' ? (
                           <span className="inline-flex items-center gap-1">
-                            <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                            <Badge variant="secondary" className="text-yellow-500">
                               Comercial
                             </Badge>
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1">
-                            <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">
+                            <Badge variant="secondary" className="text-emerald-400">
                               {t('users', 'userTypeUser')}
                             </Badge>
                           </span>
                         )}
                       </TableCell>
                       <TableCell>
-                        <div className="text-sm">{user.phone || "-"}</div>
+                        <div className="text-sm text-card-foreground">{user.phone || "-"}</div>
                         <div className="text-sm text-muted-foreground">{user.email}</div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">{t('common', 'available')}</Badge>
+                        <Badge variant="secondary">{t('common', 'available')}</Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end space-x-1">

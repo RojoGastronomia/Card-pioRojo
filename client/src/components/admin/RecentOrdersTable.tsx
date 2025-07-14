@@ -132,8 +132,12 @@ export function RecentOrdersTable({ orders, isLoading }: RecentOrdersTableProps)
                       ? 'bg-green-100 text-green-800' 
                       : order.status === 'pending'
                       ? 'bg-amber-100 text-amber-800'
+                      : order.status === 'aguardando_pagamento'
+                      ? 'bg-orange-100 text-orange-800'
                       : order.status === 'completed'
                       ? 'bg-blue-100 text-blue-800'
+                      : order.status === 'cancelled'
+                      ? 'bg-red-100 text-red-800'
                       : 'bg-gray-100 text-gray-800'
                   }`}
                 >
@@ -141,9 +145,13 @@ export function RecentOrdersTable({ orders, isLoading }: RecentOrdersTableProps)
                     ? t('admin', 'confirmed')
                     : order.status === 'pending'
                     ? t('admin', 'pending')
+                    : order.status === 'aguardando_pagamento'
+                    ? 'Aguardando Pagamento'
                     : order.status === 'completed'
                     ? t('admin', 'completed')
-                    : t('admin', 'unknown')}
+                    : order.status === 'cancelled'
+                    ? 'Cancelado'
+                    : order.status}
                 </span>
               </td>
             </tr>

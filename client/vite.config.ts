@@ -10,6 +10,18 @@ export default defineConfig({
       "@shared": path.resolve(__dirname, "../shared"),
     },
   },
+  optimizeDeps: {
+    force: true,
+    include: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      '@tanstack/react-query',
+      'wouter',
+      'sonner',
+      'lucide-react'
+    ]
+  },
   server: {
     port: 5173,
     host: '0.0.0.0',
@@ -32,10 +44,6 @@ export default defineConfig({
               // Não modificar o Content-Type para FormData
             }
           });
-          
-          // Aumentar timeout para uploads
-          proxy.timeout = 300000; // 5 minutos
-          proxy.proxyTimeout = 300000; // 5 minutos
         },
         cookieDomainRewrite: {
           '*': 'localhost'
@@ -44,10 +52,7 @@ export default defineConfig({
           '*': '/'
         },
         xfwd: true,
-        ws: true,
-        // Aumentar limites para uploads
-        limit: '50mb',
-        timeout: 30000
+        ws: true
       }
     },
     allowedHosts: [

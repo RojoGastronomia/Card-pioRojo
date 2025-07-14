@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { AuthProvider, useAuth } from "./hooks/use-auth";
 import { CartProvider } from "./context/cart-context";
 import { LanguageProvider, useLanguage } from "./context/language-context";
+import { ThemeProvider } from "./context/theme-context";
 import { ProtectedRoute } from "./lib/protected-route";
 import { MainLayout } from "./components/layout/main-layout";
 import NotFound from "./pages/not-found";
@@ -21,6 +22,7 @@ import AdminOrdersPage from "./pages/admin/orders-page";
 import MasterPage from "./pages/admin/master-page";
 import MenusCrudPage from "./pages/admin/menus-crud-page";
 import DishesPage from "./pages/admin/dishes-page";
+import MenusDishesPage from "./pages/admin/menus-dishes-page";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 
@@ -75,14 +77,16 @@ const rolesPermissions: RolePermissions = {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <LanguageProvider>
-          <CartProvider>
-            <AppRouter />
-            <Toaster />
-          </CartProvider>
-        </LanguageProvider>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <LanguageProvider>
+            <CartProvider>
+              <AppRouter />
+              <Toaster />
+            </CartProvider>
+          </LanguageProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
@@ -152,6 +156,7 @@ function AppRouter() {
             <ProtectedRoute path="/admin/users" component={AdminUsersPage} />
             <ProtectedRoute path="/admin/master" component={MasterPage} />
             <ProtectedRoute path="/admin/dishes" component={DishesPage} />
+            <ProtectedRoute path="/admin/menus-dishes" component={MenusDishesPage} />
           </>
         )}
         

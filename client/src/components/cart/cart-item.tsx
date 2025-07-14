@@ -26,7 +26,7 @@ export default function CartItem({ item }: CartItemProps) {
   };
 
   return (
-    <div className="flex items-start gap-4 p-4 border rounded-lg">
+    <div className="flex items-start gap-4 p-4 border rounded-lg bg-card border-card">
       <img
         src={item.imageUrl}
         alt={item.title}
@@ -34,16 +34,16 @@ export default function CartItem({ item }: CartItemProps) {
       />
       
       <div className="flex-1">
-        <h3 className="font-medium text-gray-900">{item.title}</h3>
-        <p className="text-sm text-gray-500">
+        <h3 className="font-medium text-foreground">{item.title}</h3>
+        <p className="text-sm text-muted-foreground">
           {item.menuSelection} • {item.guestCount} convidados
         </p>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           {item.date} • {item.time || "12:00"}
         </p>
         
         {item.menuItems && (
-          <div className="mt-2 text-sm text-gray-600">
+          <div className="mt-2 text-sm text-muted-foreground">
             {item.menuItems.entradas && item.menuItems.entradas.length > 0 && (
               <p>Entradas: {item.menuItems.entradas.join(", ")}</p>
             )}
@@ -77,12 +77,12 @@ export default function CartItem({ item }: CartItemProps) {
       </div>
       
       <div className="text-right">
-        <p className="font-medium text-gray-900">
+        <p className="font-medium text-foreground">
           {formatCurrency(item.price * item.quantity)}
         </p>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           Adicional de garçons: {formatCurrency(item.waiterFee || 0)}
-          <span className="text-xs text-gray-400 block">
+          <span className="text-xs text-muted-foreground block">
             (1 garçom a cada 10 convidados)
           </span>
         </p>

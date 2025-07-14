@@ -1,108 +1,198 @@
-# SiteCard - Sistema de Gestão de Eventos e Cardápios
+# 🍽️ SiteCard - Sistema de Cardápio Digital
 
-Sistema web para gestão de eventos e cardápios, permitindo que clientes visualizem e selecionem menus para seus eventos.
+Sistema completo de gerenciamento de cardápios digitais para eventos corporativos, desenvolvido para a **Rojo Gastronomia**.
 
-## 🚀 Tecnologias
+## 🚀 Funcionalidades
 
-Este projeto foi desenvolvido com as seguintes tecnologias:
+### 👥 **Usuários**
+- Sistema de autenticação com diferentes níveis de acesso
+- Painel administrativo para gestão de usuários
+- Perfis: Admin, Comercial, Cliente
+
+### 📋 **Eventos**
+- Criação e gerenciamento de eventos corporativos
+- Tipos: Coffee Break, Almoço, Jantar, etc.
+- Configuração de locais e horários
+
+### 🍽️ **Cardápios e Pratos**
+- Sistema completo de cardápios
+- Gestão de pratos por categoria
+- Preços e descrições detalhadas
+
+### 📦 **Pedidos**
+- Sistema de pedidos online
+- Cálculo automático de valores
+- Geração de boletos
+- Histórico de pedidos
+
+### 📧 **Sistema de Emails**
+- Confirmação automática de pedidos
+- Notificações para equipe comercial
+- Envio de boletos por email
+
+## 🛠️ Tecnologias
 
 ### Frontend
-- React 18
-- TypeScript
-- TailwindCSS
-- Shadcn/UI
-- React Query
-- React Hook Form
-- Wouter (Roteamento)
+- **React** + **TypeScript**
+- **Vite** para build
+- **Tailwind CSS** para estilização
+- **React Query** para gerenciamento de estado
+- **React Hook Form** para formulários
 
 ### Backend
-- Node.js
-- Express
-- PostgreSQL
-- Drizzle ORM
-- Passport.js (Autenticação)
+- **Node.js** + **TypeScript**
+- **Express.js** para API
+- **MongoDB** como banco principal
+- **PostgreSQL** (legado)
+- **Nodemailer** para emails
+- **Handlebars** para templates de email
 
-## 💻 Pré-requisitos
+### Infraestrutura
+- **Vercel** para deploy do frontend
+- **Railway/Render** para deploy do backend
+- **MongoDB Atlas** para banco de dados
 
-Antes de começar, verifique se você tem os seguintes requisitos:
-- Node.js (versão 18 ou superior)
-- PostgreSQL (versão 14 ou superior)
+## 📦 Instalação
+
+### Pré-requisitos
+- Node.js 18+
 - npm ou yarn
+- MongoDB Atlas (conta gratuita)
 
-## 🔧 Instalação
+### 1. Clone o repositório
+```bash
+git clone https://github.com/RojoGastronomia/Card-pioRojo.git
+cd Card-pioRojo
+```
 
-1. Clone o repositório:
-   ```sh
-   git clone https://github.com/SEU_USUARIO/NOME_DO_REPOSITORIO.git
-   cd NOME_DO_REPOSITORIO
-   ```
+### 2. Configure as variáveis de ambiente
+```bash
+# Copie o arquivo de exemplo
+cp env.example .env
 
-2. Configure as variáveis de ambiente:
-   - Copie `.env.example` para `.env` e preencha os valores necessários.
+# Configure as variáveis no .env
+```
 
-3. Instale as dependências do backend:
-   ```sh
-   cd server
-   npm install
-   ```
+### 3. Instale as dependências
+```bash
+# Dependências do backend
+npm install
 
-4. Instale as dependências do frontend:
-   ```sh
-   cd ../client
-   npm install
-   ```
+# Dependências do frontend
+cd client
+npm install
+cd ..
+```
 
-## Scripts
+### 4. Configure o banco de dados
+```bash
+# Teste a conexão com MongoDB
+node test-mongodb.js
 
-- **Backend:**
-  - `npm run dev` (desenvolvimento)
-  - `npm start` (produção)
-- **Frontend:**
-  - `npm run dev` (desenvolvimento)
-  - `npm run build` (gerar build para produção)
+# Execute a migração se necessário
+node migrate-to-mongodb.js
+```
 
-## Deploy na Render.com
+### 5. Configure o sistema de emails
+```bash
+# Teste a configuração de email
+node test-email-config.js
+```
 
-1. Suba o projeto para o GitHub.
-2. Siga o passo a passo da Render para criar um Web Service (backend) e um Static Site (frontend).
-3. Configure as variáveis de ambiente conforme `.env.example`.
-4. Crie um banco PostgreSQL gratuito na Render e use a URL fornecida.
+## 🚀 Deploy
 
-## Observações
-- O backend espera as variáveis de ambiente do arquivo `.env`.
-- O frontend espera a variável `VITE_API_URL` apontando para o backend online.
-- O backup do sistema salva arquivos na pasta `server/backups` (atenção: plataformas gratuitas podem apagar arquivos após reinício).
+### Frontend (Vercel)
+1. Conecte o repositório na Vercel
+2. Configure a pasta `client/` como raiz
+3. Configure as variáveis de ambiente
+4. Deploy automático
 
----
+### Backend (Railway/Render)
+1. Crie um novo projeto Node.js
+2. Configure as variáveis de ambiente
+3. Deploy automático
 
-Se tiver dúvidas, consulte a documentação ou abra uma issue!
+## 📧 Configuração de Email
 
-## 🌟 Funcionalidades
+Configure as seguintes variáveis no `.env`:
 
-- 👤 Autenticação de usuários
-- 📅 Gestão de eventos
-- 🍽️ Gestão de cardápios
-- 🛒 Carrinho de compras
-- 📊 Painel administrativo
-- 💼 Múltiplos perfis de usuário
+```env
+# SMTP Configuration
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=seu-email@gmail.com
+SMTP_PASS=sua-senha-de-app-gmail
+SMTP_FROM=noreply@sitecard.com.br
 
-## 🔐 Segurança
+# URLs do Sistema
+FRONTEND_URL=https://seu-frontend.vercel.app
+BACKEND_URL=https://seu-backend.railway.app
 
-O sistema implementa várias medidas de segurança:
-- Autenticação segura com Passport.js
-- Hash de senhas com Scrypt
-- Proteção contra XSS e CSRF
-- Validação de dados com Zod
-- Controle de acesso baseado em funções (RBAC)
+# Email da equipe comercial
+COMMERCIAL_TEAM_EMAIL=comercial@rojogastronomia.com
+```
 
-## 📝 Licença
+## 🧪 Testes
+
+### Teste de Conexão com MongoDB
+```bash
+node test-mongodb.js
+```
+
+### Teste de Email
+```bash
+node test-email-event-simple.js
+```
+
+### Teste de API
+```bash
+# Inicie o servidor
+npm run dev
+
+# Teste as rotas
+curl http://localhost:5000/api/events
+```
+
+## 📁 Estrutura do Projeto
+
+```
+SiteCard-pio-main/
+├── client/                 # Frontend React
+│   ├── src/
+│   │   ├── components/     # Componentes React
+│   │   ├── pages/         # Páginas da aplicação
+│   │   ├── hooks/         # Custom hooks
+│   │   └── context/       # Contextos React
+│   └── package.json
+├── server/                # Backend Node.js
+│   ├── routes.ts          # Rotas da API
+│   ├── storage.ts         # Camada de dados
+│   ├── email.ts           # Sistema de emails
+│   └── email-templates/   # Templates de email
+├── shared/                # Tipos compartilhados
+├── migrations/            # Migrações do banco
+└── package.json
+```
+
+## 🤝 Contribuição
+
+1. Faça um fork do projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
+3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. Push para a branch (`git push origin feature/AmazingFeature`)
+5. Abra um Pull Request
+
+## 📄 Licença
 
 Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
 
-## 👥 Contribuição
+## 📞 Suporte
 
-Contribuições são sempre bem-vindas! Por favor, leia o [CONTRIBUTING.md](CONTRIBUTING.md) para saber como contribuir.
+Para suporte, entre em contato:
+- **Email**: suporte@rojogastronomia.com
+- **Telefone**: (11) 1234-5678
 
-## 📫 Contato
+---
 
-Se você tiver alguma dúvida ou sugestão, por favor abra uma issue ou entre em contato. 
+**Desenvolvido com ❤️ para Rojo Gastronomia** 

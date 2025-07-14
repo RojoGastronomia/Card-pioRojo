@@ -131,8 +131,8 @@ export function useSSEStats(dateRange?: { start: string; end: string }, autoRefr
 
   // Função para conectar ao SSE
   const connectToSSE = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
     }
 
     // Montar a URL com os filtros de data, se existirem
@@ -237,55 +237,55 @@ export function useSSEStats(dateRange?: { start: string; end: string }, autoRefr
 
   // Função para fazer a requisição HTTP
   const makeRequest = useCallback(async (): Promise<boolean> => {
-    let url = `${getApiBaseUrl()}/api/basic-stats?t=${Date.now()}`;
-    console.log('[SSE] URL base para fetch:', url);
-    console.log('[SSE] dateRange para fetch:', dateRange);
-    console.log('[SSE] dateRange.start para fetch:', dateRange?.start);
-    console.log('[SSE] dateRange.end para fetch:', dateRange?.end);
-    console.log('[SSE] Condição para adicionar filtros no fetch:', !!(dateRange && dateRange.start && dateRange.end));
-    
-    if (dateRange && dateRange.start && dateRange.end) {
-      url += `&start=${encodeURIComponent(dateRange.start)}&end=${encodeURIComponent(dateRange.end)}`;
-      console.log('[SSE] Filtros adicionados à URL do fetch');
-    } else {
-      console.log('[SSE] Nenhum filtro adicionado à URL do fetch');
-    }
-    console.log('[SSE] URL final do fetch:', url);
-    
-    console.log('[SSE] Iniciando fetch...');
-    const response = await fetch(url, {
-      method: 'GET',
+      let url = `${getApiBaseUrl()}/api/basic-stats?t=${Date.now()}`;
+      console.log('[SSE] URL base para fetch:', url);
+      console.log('[SSE] dateRange para fetch:', dateRange);
+      console.log('[SSE] dateRange.start para fetch:', dateRange?.start);
+      console.log('[SSE] dateRange.end para fetch:', dateRange?.end);
+      console.log('[SSE] Condição para adicionar filtros no fetch:', !!(dateRange && dateRange.start && dateRange.end));
+      
+      if (dateRange && dateRange.start && dateRange.end) {
+        url += `&start=${encodeURIComponent(dateRange.start)}&end=${encodeURIComponent(dateRange.end)}`;
+        console.log('[SSE] Filtros adicionados à URL do fetch');
+      } else {
+        console.log('[SSE] Nenhum filtro adicionado à URL do fetch');
+      }
+      console.log('[SSE] URL final do fetch:', url);
+      
+      console.log('[SSE] Iniciando fetch...');
+      const response = await fetch(url, {
+        method: 'GET',
       credentials: 'include',
       // Adicionar timeout para evitar requisições pendentes
       signal: AbortSignal.timeout(30000) // 30 segundos de timeout
-    });
-    
-    console.log('[SSE] Response status:', response.status);
-    console.log('[SSE] Response ok:', response.ok);
-    
-    if (!response.ok) {
-      throw new Error(`Erro HTTP: ${response.status}`);
-    }
-    
-    console.log('[SSE] Fazendo parse da resposta...');
-    const data = await response.json();
-    console.log('[SSE] Dados atualizados recebidos via fetch direto:', data);
-    console.log('[SSE] DEBUG - Total de pedidos recebidos via fetch:', data.totalOrders);
-    console.log('[SSE] DEBUG - Pedidos recentes recebidos via fetch:', data.recentOrders?.length || 0);
-    console.log('[SSE] DEBUG - IDs dos pedidos via fetch:', data.recentOrders?.map((o: any) => o.id) || []);
-    console.log('[SSE] DEBUG - DateRange atual via fetch:', dateRange);
-    
-    console.log('[SSE] Processando dados...');
-    const processedStats = processStatsData(data);
-    console.log('[SSE] Dados processados:', processedStats);
-    
-    console.log('[SSE] Atualizando estado...');
-    setStats(processedStats);
-    setLastUpdate(new Date());
-    setIsLoading(false);
-    
-    console.log('[SSE] refreshStats concluído com sucesso');
-    return true;
+      });
+      
+      console.log('[SSE] Response status:', response.status);
+      console.log('[SSE] Response ok:', response.ok);
+      
+      if (!response.ok) {
+        throw new Error(`Erro HTTP: ${response.status}`);
+      }
+      
+      console.log('[SSE] Fazendo parse da resposta...');
+      const data = await response.json();
+      console.log('[SSE] Dados atualizados recebidos via fetch direto:', data);
+      console.log('[SSE] DEBUG - Total de pedidos recebidos via fetch:', data.totalOrders);
+      console.log('[SSE] DEBUG - Pedidos recentes recebidos via fetch:', data.recentOrders?.length || 0);
+      console.log('[SSE] DEBUG - IDs dos pedidos via fetch:', data.recentOrders?.map((o: any) => o.id) || []);
+      console.log('[SSE] DEBUG - DateRange atual via fetch:', dateRange);
+      
+      console.log('[SSE] Processando dados...');
+      const processedStats = processStatsData(data);
+      console.log('[SSE] Dados processados:', processedStats);
+      
+      console.log('[SSE] Atualizando estado...');
+      setStats(processedStats);
+      setLastUpdate(new Date());
+      setIsLoading(false);
+      
+      console.log('[SSE] refreshStats concluído com sucesso');
+      return true;
   }, [processStatsData, dateRange]);
 
   // Função para forçar uma atualização completa com fila
@@ -313,14 +313,14 @@ export function useSSEStats(dateRange?: { start: string; end: string }, autoRefr
           // Usar a fila de requisições para evitar sobrecarga
           const result = await requestQueueRef.current.add(makeRequest);
           resolve(result);
-        } catch (err) {
-          console.error('[SSE] Erro ao atualizar dados:', err);
-          setError(`Erro ao atualizar: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
-          setIsLoading(false);
+    } catch (err) {
+      console.error('[SSE] Erro ao atualizar dados:', err);
+      setError(`Erro ao atualizar: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+      setIsLoading(false);
           resolve(false);
         } finally {
           refreshInProgressRef.current = false;
-        }
+    }
       }, 300); // Debounce de 300ms
     });
   }, [makeRequest]);
@@ -345,7 +345,7 @@ export function useSSEStats(dateRange?: { start: string; end: string }, autoRefr
     
     // Fazer carregamento inicial via fetch apenas na primeira vez
     if (isInitialLoadRef.current) {
-      console.log('[SSE] Fazendo carregamento inicial via fetch...');
+    console.log('[SSE] Fazendo carregamento inicial via fetch...');
       refreshStats().then(success => {
         console.log('[SSE] Carregamento inicial concluído:', success);
         isInitialLoadRef.current = false;
@@ -380,8 +380,8 @@ export function useSSEStats(dateRange?: { start: string; end: string }, autoRefr
       
       debounceTimeoutRef.current = setTimeout(() => {
         console.log('[SSE] DateRange mudou, reconectando SSE...');
-        const cleanup = connectToSSE();
-        return cleanup;
+      const cleanup = connectToSSE();
+      return cleanup;
       }, 500); // Debounce de 500ms para mudanças de dateRange
     }
   }, [dateRange, connectToSSE, autoRefresh]);

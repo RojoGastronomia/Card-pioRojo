@@ -28,7 +28,7 @@ export default function EventCard({ event, onClick, onMenuOptionsClick }: EventC
 
   return (
     <Card 
-      className="overflow-hidden hover:shadow-md transition-all duration-200 cursor-pointer group bg-white rounded-lg"
+      className="overflow-hidden hover:shadow-md transition-all duration-200 cursor-pointer group bg-card rounded-lg"
       onClick={onClick}
     >
       <div className="relative h-48">
@@ -40,17 +40,17 @@ export default function EventCard({ event, onClick, onMenuOptionsClick }: EventC
       </div>
 
       <div className="p-5">
-        <h2 className="text-xl font-semibold text-gray-800 mb-2">
+        <h2 className="text-xl font-semibold text-card-foreground mb-2">
           {eventTitle}
         </h2>
 
-        <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+        <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
           {eventDescription}
         </p>
 
         <div className="flex items-center justify-between">
           <div 
-            className="flex items-center text-sm text-gray-500 cursor-pointer"
+            className="flex items-center text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
             onClick={(e) => onMenuOptionsClick?.(e, event)}
           >
             <MenuIcon className="w-4 h-4 mr-2" />
@@ -61,9 +61,15 @@ export default function EventCard({ event, onClick, onMenuOptionsClick }: EventC
             </span>
           </div>
 
+          {event.status === 'active' ? (
           <span className="bg-emerald-500 text-white text-xs px-3 py-1 rounded-full whitespace-nowrap">
             {t('common', 'available')}
           </span>
+          ) : (
+            <span className="bg-red-500 text-white text-xs px-3 py-1 rounded-full whitespace-nowrap">
+              {t('common', 'unavailable')}
+            </span>
+          )}
         </div>
       </div>
     </Card>

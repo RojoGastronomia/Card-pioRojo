@@ -83,32 +83,32 @@ export function BoletoModal({ order, event, open, onOpenChange, onConfirmPayment
 
         <div className="space-y-6">
           {/* Informações do Pedido */}
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="font-semibold text-gray-900 mb-3">Informações do Pedido</h3>
+          <div className="bg-card p-4 rounded-lg">
+            <h3 className="font-semibold text-card-foreground mb-3">Informações do Pedido</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-gray-500">Evento</p>
-                <p className="font-medium">{event.title}</p>
+                <p className="text-sm text-muted-foreground">Evento</p>
+                <p className="font-medium text-card-foreground">{event.title}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Data do Evento</p>
+                <p className="text-sm text-muted-foreground">Data do Evento</p>
                 <div className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4 text-gray-400" />
-                  <p className="font-medium">{formatDate(order.date)}</p>
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <p className="font-medium text-card-foreground">{formatDate(order.date)}</p>
                 </div>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Menu</p>
-                <p className="font-medium">{order.menuSelection}</p>
+                <p className="text-sm text-muted-foreground">Menu</p>
+                <p className="font-medium text-card-foreground">{order.menuSelection}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Convidados</p>
-                <p className="font-medium">{order.guestCount}</p>
+                <p className="text-sm text-muted-foreground">Convidados</p>
+                <p className="font-medium text-card-foreground">{order.guestCount}</p>
               </div>
             </div>
             <div className="mt-4 pt-4 border-t">
               <div className="flex justify-between items-center">
-                <p className="text-lg font-semibold">Valor Total</p>
+                <p className="text-lg font-semibold text-card-foreground">Valor Total</p>
                 <p className="text-lg font-semibold text-emerald-600">
                   {formatCurrency(order.totalAmount)}
                 </p>
@@ -174,13 +174,13 @@ export function BoletoModal({ order, event, open, onOpenChange, onConfirmPayment
           </div>
 
           {/* Status do Pedido */}
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+          <div className="flex items-center justify-between p-3 bg-card rounded-lg">
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="bg-orange-100 text-orange-800">
                 Aguardando Pagamento
               </Badge>
             </div>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               Pedido criado em {formatDate(order.createdAt)}
             </p>
           </div>

@@ -93,10 +93,10 @@ export default function StatsCard({
   }, [title, value, secondaryValue, safeValue, safeSecondaryValue, showPotential]);
 
   return (
-    <Card className="hover:shadow-md transition-all duration-200 cursor-pointer">
+    <Card className="hover:shadow-md transition-all duration-200 cursor-pointer bg-card border border-border">
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium text-gray-900">{title}</h3>
+          <h3 className="text-lg font-medium text-card-foreground">{title}</h3>
           <div className={`w-10 h-10 flex items-center justify-center ${iconBgColor} rounded-full`}>
             <div className={iconColor}>
               {icon}
@@ -107,7 +107,7 @@ export default function StatsCard({
           {/* Always use formatCurrency for revenue values to ensure proper formatting */}
           {isCurrencyCard ? (
             <>
-              <p className="text-3xl font-semibold text-gray-900">
+              <p className="text-3xl font-semibold text-card-foreground">
                 {typeof safeValue === 'number' ? formatCurrency(safeValue) : safeValue}
               </p>
               
@@ -123,7 +123,7 @@ export default function StatsCard({
             </>
           ) : (
             <>
-              <p className="text-3xl font-semibold text-gray-900">{formatValue(value)}</p>
+              <p className="text-3xl font-semibold text-card-foreground">{formatValue(value)}</p>
               
               {secondaryValue && showPotential && (
                 <p className="text-lg font-medium text-emerald-600 mt-1">
@@ -144,7 +144,7 @@ export default function StatsCard({
               <ArrowUp className="mr-1" size={14} />
               {change}%
             </span>
-            <span className="text-gray-500 text-sm ml-2">desde o último mês</span>
+            <span className="text-muted-foreground text-sm ml-2">desde o último mês</span>
           </div>
         )}
       </CardContent>
