@@ -45,7 +45,7 @@ import { formatCurrency } from "@/lib/utils";
 import React from "react";
 import { useRealtimeUpdates } from "@/hooks/use-realtime-updates";
 import { Textarea } from "@/components/ui/textarea";
-import { API_URL } from '../config';
+import { API_URL } from '../../config';
 
 // Form schema
 const dishFormSchema = z.object({
