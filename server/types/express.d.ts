@@ -8,6 +8,7 @@ declare global {
       login(user: any, callback: (err?: any) => void): void;
       logout(callback: (err?: any) => void): void;
       sessionID?: string;
+      session?: any;
     }
   }
 }
