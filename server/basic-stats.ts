@@ -23,7 +23,7 @@ export async function getBasicStats() {
     const totalRevenue = orders.reduce((sum, order) => {
       return sum + (order.totalAmount || 0);
     }, 0);
-
+    
     // Pedidos recentes
     const recentOrders = orders
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())

@@ -1,4 +1,4 @@
-import { connectToMongoDB, disconnectFromMongoDB } from './db-mongo';
+import { connectToMongoDB, disconnectFromMongoDB } from './db-mongo.js';
 import { User, Menu, Dish, Event, Order, type IUser, type IMenu, type IDish, type IEvent, type IOrder } from './models';
 import bcrypt from 'bcrypt';
 import session from 'express-session';
