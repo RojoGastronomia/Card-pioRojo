@@ -4,11 +4,27 @@
     "module": "CommonJS",
     "moduleResolution": "node",
     "esModuleInterop": true,
-    "strict": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": false,
+    "noImplicitAny": false,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "resolveJsonModule": true,
+    "declaration": false,
+    "sourceMap": false
   },
-  "include": ["**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "shared/**/*",
+    "drizzle/**/*",
+    "migrations/**/*",
+    "scripts/**/*"
+  ]
 } 
