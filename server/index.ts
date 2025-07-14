@@ -1,264 +1,139 @@
-import "dotenv/config";
-import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-// import { setupVite, serveStatic, log } from "./vite";
-import { createServer, type Server } from "http";
+import express from "express";
 import cors from "cors";
-import session from "express-session";
-import passport from "passport";
+import rateLimit from "express-rate-limit";
+import { registerRoutes } from "./routes";
 import { storage } from "./storage-mongo";
-import { setupAuth } from "./auth";
-import { registerBasicStatsRoute } from "./basic-route";
 import logger from "./logger";
-import { registerSSERoute, setupPeriodicUpdates, sseManager } from "./sse";
-import { setupRealTimeUpdates } from "./realtime-updates";
-import path from "path";
-import { fileURLToPath } from "url";
-import fs from "fs";
-import { sessionStore } from "./storage-mongo";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Configurar gerenciamento de erros não tratados
-process.on("uncaughtException", (err) => {
-  console.error("ERRO NÃO TRATADO:", err);
-  logger.fatal(
-    { error: err.message, stack: err.stack },
-    "Erro não tratado no processo",
-  );
-});
-
-process.on("unhandledRejection", (reason, promise) => {
-  console.error("PROMISE REJECTION NÃO TRATADA:", reason);
-  logger.fatal({ error: reason }, "Promise rejection não tratada");
-});
-
-try {
-  console.log("\n==== INICIANDO SERVIDOR ====");
-console.log("NODE_ENV:", process.env.NODE_ENV);
-  console.log("DATABASE_URL:", process.env.DATABASE_URL || "NÃO CONFIGURADO");
-  console.log("CWD:", process.cwd());
-  console.log("Existe .env aqui?", fs.existsSync(path.join(process.cwd(), ".env")));
-  console.log("PORT lida do .env:", process.env.PORT);
-  console.log("===========================\n");
-
-  if (process.env.NODE_ENV === "production") {
-    console.log("Servidor não iniciado - ambiente de produção");
-    process.exit(1);
-  }
+import { connectToMongoDB } from "./db-mongo";
 
 const app = express();
+const PORT = process.env.PORT || 3001;
 
-// Basic middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+// Configuração de CORS
+app.use(cors({
+  origin: process.env.FRONTEND_URL || "http://localhost:3000",
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+}));
 
-// Configure CORS - com configurações mais permissivas para desenvolvimento
-app.use(
-  cors({
-    origin: true, // Permitir todas as origens em desenvolvimento
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
-  }),
-);
+// Configuração de rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // limite de 100 requisições por IP
+  message: "Muitas requisições deste IP, tente novamente mais tarde.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
-// Configure session com opções mais flexíveis para desenvolvimento
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "dev-session-secret",
-    resave: true,
-    saveUninitialized: true,
-    store: sessionStore,
-    cookie: {
-      secure: false, // Desativar secure para desenvolvimento local
-      sameSite: "lax",
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      httpOnly: true,
-      path: "/",
-      domain: undefined, // Remover restrição de domínio
-    },
-      name: 'connect.sid', // Nome do cookie de sessão
-  }),
-);
+app.use(limiter);
 
-// Adicionar middleware para log de sessão
+// Middleware para parsing de JSON
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+// Middleware de logging
 app.use((req, res, next) => {
-  console.log('[Session]', {
-    sessionID: req.sessionID,
-    isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
-    user: req.user ? { id: req.user.id, email: req.user.email } : null,
-    cookies: req.cookies,
-    headers: {
-      origin: req.headers.origin,
-      referer: req.headers.referer,
-      cookie: req.headers.cookie,
-    }
-  });
-
-  // Adicionar headers CORS para cookies
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With, Cookie');
-
+  logger.info({
+    method: req.method,
+    url: req.url,
+    ip: req.ip,
+    userAgent: req.get("User-Agent"),
+  }, "Request received");
   next();
 });
 
-// Initialize Passport
-app.use(passport.initialize());
-app.use(passport.session());
-
-// Setup authentication
-setupAuth(app);
-
-// Rota de verificação básica
-app.get("/api/health", (req, res) => {
+// Health check endpoint
+app.get("/health", (req, res) => {
   res.json({
-    status: "ok",
-    env: process.env.NODE_ENV,
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+  });
+});
+
+// Rota de teste básica
+app.get("/", (req, res) => {
+  res.json({
+    message: "SiteCard API está funcionando!",
+    version: "1.0.0",
     timestamp: new Date().toISOString(),
   });
 });
 
-// Servir arquivos de backup de forma estática
-app.use("/backups", express.static(path.join(__dirname, "backups")));
+// Inicializar rotas
+registerRoutes(app);
 
-// Iniciar o servidor
+// Middleware de tratamento de erros
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  logger.error({
+    error: err.message,
+    stack: err.stack,
+    url: req.url,
+    method: req.method,
+  }, "Unhandled error");
+
+  res.status(err.status || 500).json({
+    error: "Erro interno do servidor",
+    message: process.env.NODE_ENV === "production" ? "Algo deu errado" : err.message,
+  });
+});
+
+// Middleware para rotas não encontradas
+app.use("*", (req, res) => {
+  res.status(404).json({
+    error: "Rota não encontrada",
+    message: `A rota ${req.originalUrl} não existe`,
+  });
+});
+
+// Função para inicializar o servidor
 async function startServer() {
   try {
-    console.log("Iniciando servidor...");
-    logger.info("Iniciando servidor...");
+    // Conectar ao MongoDB
+    await connectToMongoDB();
+    logger.info("Connected to MongoDB");
 
-    console.log("Inicializando MongoDB...");
-    try {
-      await storage.initialize();
-      console.log("MongoDB inicializado com sucesso.");
-    } catch (mongoError) {
-      console.error("ERRO NO MONGODB:", mongoError);
-      logger.error({ error: mongoError }, "Erro ao inicializar MongoDB");
-      // Continuar mesmo com erro no MongoDB
-      console.log("Continuando servidor mesmo com erro no MongoDB...");
-    }
+    // Inicializar storage
+    await storage.initialize();
+    logger.info("Storage initialized");
 
-    console.log("Registrando rotas...");
-    try {
-      // Register all routes
-      const server = createServer(app);
-      await registerRoutes(app);
-      console.log("Rotas registradas com sucesso.");
+    // Iniciar servidor
+    const server = app.listen(PORT, () => {
+      logger.info(`Server running on port ${PORT}`);
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📊 Health check: http://localhost:${PORT}/health`);
+      console.log(`🔗 API base URL: http://localhost:${PORT}`);
+    });
 
-      // Register basic stats route
-      console.log("Registrando rota de estatísticas...");
-      registerBasicStatsRoute(app);
-
-      // Register SSE route and setup periodic updates
-      console.log("Configurando SSE...");
-      registerSSERoute(app);
-      setupPeriodicUpdates();
-      setupRealTimeUpdates(app);
-
-      // Middleware for logging errors
-      app.use(
-        (
-          err: Error,
-          req: express.Request,
-          res: express.Response,
-          next: express.NextFunction,
-        ) => {
-          logger.error(
-            {
-              error: err.message,
-              stack: err.stack,
-              path: req.path,
-              method: req.method,
-            },
-            "Erro não tratado",
-          );
-
-          res.status(500).json({
-            error: "Erro interno do servidor",
-            message:
-              process.env.NODE_ENV === "production"
-                ? "Um erro ocorreu"
-                : err.message,
-          });
-        },
-      );
-
-      // Configurar Vite em desenvolvimento ou servir estáticos em produção
-      console.log("Configurando servidor de arquivos estáticos...");
-      // if (process.env.NODE_ENV === "development") {
-      //   try {
-      //     await setupVite(app, server);
-      //     console.log("Vite configurado com sucesso.");
-      //   } catch (viteError) {
-      //     console.error("ERRO AO CONFIGURAR VITE:", viteError);
-      //     logger.error({ error: viteError }, "Erro ao configurar Vite");
-      //     // Continuar sem Vite em caso de erro
-      //     serveStatic(app);
-      //   }
-      // } else {
-      //   serveStatic(app);
-      // }
-
-      // Start the server
-      const port = process.env.PORT || 5000;
-      server.listen(port, "0.0.0.0", () => {
-        console.log(`Servidor iniciado em http://0.0.0.0:${port}`);
-        logger.info(`Servidor iniciado em http://0.0.0.0:${port}`);
-      });
-
-      // Lidar com encerramento do servidor
-      process.on("SIGTERM", () => {
-        logger.info("Encerrando servidor");
-        sseManager.shutdown();
+    // Graceful shutdown
+    process.on("SIGTERM", () => {
+      logger.info("SIGTERM received, shutting down gracefully");
+      server.close(() => {
+        logger.info("Process terminated");
         process.exit(0);
       });
+    });
 
-      // Também tratar SIGINT para garantir encerramento limpo em desenvolvimento
-      process.on("SIGINT", () => {
-        logger.info("Recebido sinal SIGINT, desligando servidor...");
-        sseManager.shutdown();
+    process.on("SIGINT", () => {
+      logger.info("SIGINT received, shutting down gracefully");
+      server.close(() => {
+        logger.info("Process terminated");
         process.exit(0);
       });
+    });
 
-      return server;
-    } catch (routesError) {
-      console.error("ERRO AO REGISTRAR ROTAS:", routesError);
-      logger.error({ error: routesError }, "Erro ao registrar rotas");
-      throw routesError;
-    }
+    return server;
   } catch (error) {
-    console.error("ERRO AO INICIAR SERVIDOR:", error);
-    logger.error({ error }, "Erro ao iniciar o servidor");
+    logger.error({ error: error instanceof Error ? error.message : "Unknown error" }, "Failed to start server");
     process.exit(1);
   }
 }
 
-// Iniciar o servidor sempre em desenvolvimento
-if (
-  process.env.NODE_ENV === "development" ||
-  process.env.START_SERVER === "true"
-) {
-  console.log("Iniciando servidor em modo desenvolvimento...");
-  startServer()
-    .then(() => {
-      console.log(
-        "✅ Servidor iniciado com sucesso na porta",
-        process.env.PORT || 5000,
-      );
-    })
-    .catch((err) => {
-      console.error("❌ Erro ao iniciar servidor:", err);
-      // Não encerrar o processo em caso de erro
-      console.log("Tentando continuar mesmo com erro...");
-    });
-} else {
-  console.log("Servidor não iniciado - ambiente de produção");
+// Iniciar servidor se este arquivo for executado diretamente
+if (import.meta.url === `file://${process.argv[1]}`) {
+  startServer();
 }
-} catch (error) {
-  console.error("ERRO AO INICIAR SERVIDOR:", error);
-  process.exit(1);
-}
+
+export { app, startServer };
