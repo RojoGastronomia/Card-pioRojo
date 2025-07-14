@@ -194,6 +194,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Rota para obter usuário atual
+  app.get("/api/user", async (req: Request, res: Response) => {
+    try {
+      // Verificar se o usuário está autenticado
+      if (!req.isAuthenticated || !req.isAuthenticated()) {
+        return res.status(401).json({ 
+          authenticated: false, 
+          message: "Usuário não autenticado" 
+        });
+      }
+
+      // Retornar dados do usuário atual
+      res.json({
+        authenticated: true,
+        user: req.user
+      });
+    } catch (err) {
+      const error = err as KnownError;
+      logger.error({ error: error.message, stack: error.stack }, "[API] GET /api/user - Error fetching current user");
+      res.status(500).json({ message: "Error fetching current user" });
+    }
+  });
+
   // Health check endpoint
   app.get('/health', async (req: Request, res: Response) => {
     res.json({
