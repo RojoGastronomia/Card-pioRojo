@@ -1,4 +1,4 @@
-import { storage } from "./storage";
+import { storage } from "./storage-mongo";
 
 /**
  * Obtém estatísticas básicas do sistema para o dashboard

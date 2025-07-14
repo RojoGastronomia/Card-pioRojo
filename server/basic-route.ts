@@ -1,6 +1,6 @@
 import { Express, Request, Response } from "express";
 import { getBasicStats } from "./basic-stats";
-import { storage } from "./storage";
+import { storage } from "./storage-mongo";
 
 /**
  * Registra a rota de estatísticas básicas na aplicação Express

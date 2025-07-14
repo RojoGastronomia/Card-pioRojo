@@ -3,7 +3,7 @@ import { Strategy as LocalStrategy } from "passport-local";
 import { Strategy as JwtStrategy, ExtractJwt } from "passport-jwt";
 import { Express, Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
-import { storage } from "./storage";
+import { storage } from "./storage-mongo";
 import { User as SelectUser, insertUserSchema } from "shared/schema";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";

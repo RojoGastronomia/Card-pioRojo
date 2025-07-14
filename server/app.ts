@@ -3,7 +3,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import cors from 'cors';
 import { rateLimiter, requireRole, validateInput, errorHandler, requestLogger, sanitizeInput } from './middleware';
-import { monitoring, trackResponseTime } from './monitoring';
+// import { monitoring, trackResponseTime } from './monitoring';
 import { cache } from './cache';
 import { ROLES } from './config';
 import path from 'path';
@@ -32,7 +32,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Monitoring middleware
 app.use(requestLogger);
-app.use(trackResponseTime);
+// app.use(trackResponseTime);
 
 // Increase header size limit
 app.use((req, res, next) => {
@@ -62,28 +62,28 @@ app.options('*', (req, res) => {
 
 // Health check endpoint
 app.get('/health', async (req: Request, res: Response) => {
-  const systemMetrics = await monitoring.getSystemMetrics();
-  const dbMetrics = await monitoring.getDatabaseMetrics();
+  // const systemMetrics = await monitoring.getSystemMetrics();
+  // const dbMetrics = await monitoring.getDatabaseMetrics();
   
   res.json({
     status: 'healthy',
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
-    system: systemMetrics,
-    database: dbMetrics,
+    // system: systemMetrics,
+    // database: dbMetrics,
   });
 });
 
 // Metrics endpoint (protected by admin role)
 app.get('/metrics', requireRole(ROLES.ADMIN), async (req: Request, res: Response) => {
-  const apiMetrics = monitoring.getApiMetrics();
-  const systemMetrics = await monitoring.getSystemMetrics();
-  const dbMetrics = await monitoring.getDatabaseMetrics();
+  // const apiMetrics = monitoring.getApiMetrics();
+  // const systemMetrics = await monitoring.getSystemMetrics();
+  // const dbMetrics = await monitoring.getDatabaseMetrics();
   
   res.json({
-    api: apiMetrics,
-    system: systemMetrics,
-    database: dbMetrics,
+    // api: apiMetrics,
+    // system: systemMetrics,
+    // database: dbMetrics,
     cache: {
       // stats: cache.getStats(), // Removido temporariamente
     },

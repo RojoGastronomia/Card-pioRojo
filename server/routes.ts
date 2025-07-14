@@ -1,6 +1,6 @@
 import express, { Express, Request, Response, NextFunction } from "express";
 import { Server } from "http";
-import { storage, notifyDataChange } from "./storage";
+import { storage, notifyDataChange } from "./storage-mongo";
 import { setupAuth, authenticateJWT, AuthenticatedRequest as AuthReq } from "./auth";
 import { z } from "zod";
 import { 
@@ -37,7 +37,7 @@ import {
   type Category, type InsertCategory, categories
 } from "shared/schema";
 import multer from 'multer';
-import { migrateAllLegacyMenuDishes } from './storage';
+import { migrateAllLegacyMenuDishes } from './storage-mongo';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

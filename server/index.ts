@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+// import { setupVite, serveStatic, log } from "./vite";
 import { createServer, type Server } from "http";
 import cors from "cors";
 import session from "express-session";
@@ -189,19 +189,19 @@ async function startServer() {
 
       // Configurar Vite em desenvolvimento ou servir estáticos em produção
       console.log("Configurando servidor de arquivos estáticos...");
-      if (process.env.NODE_ENV === "development") {
-        try {
-          await setupVite(app, server);
-          console.log("Vite configurado com sucesso.");
-        } catch (viteError) {
-          console.error("ERRO AO CONFIGURAR VITE:", viteError);
-          logger.error({ error: viteError }, "Erro ao configurar Vite");
-          // Continuar sem Vite em caso de erro
-          serveStatic(app);
-        }
-      } else {
-        serveStatic(app);
-      }
+      // if (process.env.NODE_ENV === "development") {
+      //   try {
+      //     await setupVite(app, server);
+      //     console.log("Vite configurado com sucesso.");
+      //   } catch (viteError) {
+      //     console.error("ERRO AO CONFIGURAR VITE:", viteError);
+      //     logger.error({ error: viteError }, "Erro ao configurar Vite");
+      //     // Continuar sem Vite em caso de erro
+      //     serveStatic(app);
+      //   }
+      // } else {
+      //   serveStatic(app);
+      // }
 
       // Start the server
       const port = process.env.PORT || 5000;
