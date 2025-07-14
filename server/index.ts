@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
-import { registerRoutes } from "./routes";
+import { registerRoutes } from "./routes.js";
 import { storage } from "./storage-mongo";
 import logger from "./logger";
 import { connectToMongoDB } from "./db-mongo";
