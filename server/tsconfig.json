@@ -19,22 +19,19 @@
     "noUnusedParameters": false
   },
   "include": [
-    "**/*.ts",
+    "app.ts",
+    "auth.ts",
+    "db-mongo.ts",
+    "email.ts",
+    "index.ts",
+    "logger.ts",
+    "middleware.ts",
+    "routes.ts",
+    "storage-mongo.ts",
     "types/**/*.d.ts"
   ],
   "exclude": [
     "node_modules",
-    "dist",
-    "**/*.test.ts",
-    "**/*.spec.ts",
-    "shared/**/*",
-    "drizzle/**/*",
-    "migrations/**/*",
-    "scripts/**/*",
-    "seed.ts",
-    "monitoring.ts",
-    "vite.ts",
-    "services/stats.ts",
-    "storage.ts"
+    "dist"
   ]
 } 
