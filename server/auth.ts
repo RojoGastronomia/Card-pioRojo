@@ -203,7 +203,7 @@ export function setupAuth(app: Express) {
         user,
         timestamp: Date.now()
       });
-      return done(null, user);
+      return done(null, user as any);
     } catch (error) {
       console.error('[Passport] Erro ao deserializar usuário:', error);
       return done(error);
