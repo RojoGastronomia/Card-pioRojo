@@ -1,5 +1,5 @@
 import { connectToMongoDB, disconnectFromMongoDB } from './db-mongo.js';
-import { User, Menu, Dish, Event, Order, type IUser, type IMenu, type IDish, type IEvent, type IOrder } from './models';
+import { User, Menu, Dish, Event, Order, type IUser, type IMenu, type IDish, type IEvent, type IOrder } from './models/index.js';
 import bcrypt from 'bcrypt';
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
